@@ -12,15 +12,20 @@ class Offboarding extends Model
         'Final Payroll & Clearance'        => 'Calculate final payout, encash unused leaves, and issue financial clearance.',
     ];
 
-    public function allWithDetails(): array
+    public function allWithDetails(bool $activeOnly = true): array
     {
         $sql = "SELECT o.*, e.employee_code, e.first_name, e.last_name, e.email, e.designation, d.name as department_name,
                        (SELECT COUNT(*) FROM offboarding_tasks WHERE offboarding_id = o.id) as total_tasks,
                        (SELECT COUNT(*) FROM offboarding_tasks WHERE offboarding_id = o.id AND is_completed = 1) as completed_tasks
                 FROM offboarding o
                 INNER JOIN employees e ON o.employee_id = e.id
-                LEFT JOIN departments d ON e.department_id = d.id
-                ORDER BY CASE o.status WHEN 'In Progress' THEN 1 WHEN 'Pending' THEN 2 ELSE 3 END, o.id DESC";
+                LEFT JOIN departments d ON e.department_id = d.id";
+
+        if ($activeOnly) {
+            $sql .= " WHERE o.status != 'Completed'";
+        }
+
+        $sql .= " ORDER BY CASE o.status WHEN 'In Progress' THEN 1 WHEN 'Pending' THEN 2 ELSE 3 END, o.id DESC";
         return $this->query($sql)->fetchAll();
     }
 

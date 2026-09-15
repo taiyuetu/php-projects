@@ -121,6 +121,7 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(32)));
                         <?php if (empty($activeOffboardings)): ?>
                             <tr><td colspan="7" class="text-center text-muted py-4">No employees currently in offboarding. You can start offboarding an employee from the Employees page.</td></tr>
                         <?php else: foreach ($activeOffboardings as $ao): 
+                            if ($ao['status'] === 'Completed') continue;
                             $percent = $ao['total_tasks'] > 0 ? round(($ao['completed_tasks'] / $ao['total_tasks']) * 100) : 0;
                         ?>
                             <tr>
