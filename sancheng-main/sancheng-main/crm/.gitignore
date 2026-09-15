@@ -1,0 +1,17 @@
+# SQLite database file
+database/crm.sqlite
+database/crm.sqlite-wal
+database/crm.sqlite-shm
+
+# Environment
+.env
+
+# Uploaded files (keep directory structure)
+public/uploads/attachments/*
+!public/uploads/attachments/.gitkeep
+
+# 服务器快照（后台「备份与恢复」写在这里）：里面是整库明文与全部附件，不进版本库
+# pre-restore-*.sqlite 是恢复前自动留的回滚点，同样只属于那台机器
+database/backups/*
+!database/backups/.gitkeep
+!database/backups/.htaccess

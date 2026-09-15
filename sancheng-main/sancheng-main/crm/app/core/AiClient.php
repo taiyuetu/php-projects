@@ -1,0 +1,593 @@
+<?php
+
+/**
+ * Transport for OpenAI-compatible chat endpoints.
+ *
+ * Why hand-rolled: this project runs on a plain "PHP + SQLite" install where the
+ * curl extension is frequently missing (our own test suite hit exactly that), so
+ * everything goes through PHP streams — the same approach tests/bootstrap.php
+ * uses. No SDK, no Composer.
+ *
+ * Every value can be overridden by the environment, which lets a deployment keep
+ * the API key out of the database entirely:
+ *   AI_ENABLED / AI_PROVIDER / AI_MODEL / AI_BASE_URL / AI_API_KEY / AI_MODE
+ *
+ * Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
+ */
+class AiClient
+{
+    /** Wall-clock budget for one model call, in seconds (设置 → AI 助手 可调). */
+    public const DEFAULT_TIMEOUT = 45.0;
+    public const MAX_TIMEOUT     = 300.0;
+    /** Give up early when the host is unreachable, instead of burning the budget. */
+    public const CONNECT_TIMEOUT = 8.0;
+    /** Keep this much room before PHP's own max_execution_time fires. */
+    public const HEADROOM = 10;
+
+    /** Test hook: callable(string $url, ?array $payload, string $key, float $timeout, string $keyHeader): array */
+    public static $transport = null;
+
+    /**
+     * Can this PHP reach an https endpoint at all? Cloud providers are all https
+     * and the stream wrapper needs the openssl extension — often absent from small
+     * Windows PHP builds (this project's own machine included). Saying so up
+     * front beats a vague "connection failed", and 本地 Ollama (http) keeps working.
+     */
+    public static function httpsAvailable(): bool
+    {
+        static $ok = null;
+        if ($ok === null) {
+            // Note: stream_get_transports() lists the *wrappers* ("ssl"/"tls"),
+            // never the literal "https" — that is an URL scheme, not a transport.
+            // Checking for 'https' here silently reported "unavailable" on a
+            // perfectly working build, so look for the TLS transport instead.
+            $transports = stream_get_transports();
+            $ok = extension_loaded('openssl')
+                && (in_array('ssl', $transports, true) || in_array('tls', $transports, true));
+        }
+        return $ok;
+    }
+
+    /**
+     * PHP's own max_execution_time (30 s under php -S / Apache, and it counts the
+     * model's thinking time) was fataling the page mid-request. Raise it for this
+     * request, then hand back a stream timeout that always gives up first — so a
+     * slow model becomes a readable error, not a Fatal error on the screen.
+     */
+    public static function allowTime(float $seconds): float
+    {
+        $need  = (int) ceil($seconds) + self::HEADROOM + 5;
+        $limit = (int) ini_get('max_execution_time');
+        if ($limit > 0 && $limit < $need) {
+            @set_time_limit($need);
+            $limit = $need;
+        }
+        return self::effectiveTimeout($seconds, $limit);
+    }
+
+    /**
+     * Does this 4xx mean "I don't know that parameter"? Providers word it many ways,
+     * so match the parameter name itself or a generic unknown-parameter phrase.
+     */
+    public static function rejectsParam(string $error, array $names): bool
+    {
+        $e = strtolower($error);
+        foreach ($names as $name) {
+            if (strpos($e, strtolower((string) $name)) !== false) {
+                return true;
+            }
+        }
+        return (bool) preg_match('~unknown|unrecognized|unexpected|invalid (request )?param|not supported~', $e);
+    }
+
+    /** What a "never got a response" outcome means, and how to fix it. */
+    public static function noResponseError(string $url, float $timeout): string
+    {
+        $host = preg_replace('~https?://([^/]+).*~', '$1', $url);
+        return (int) $timeout . ' 秒内没有收到 AI 响应（接口 ' . $host . '）：'
+            . '可在 设置 → AI 助手 调大“响应超时”，或换更快的模型（flash 档）并调小“最大回复长度”。';
+    }
+
+    /** Pure half of allowTime(), so the margin is testable without set_time_limit(). */
+    public static function effectiveTimeout(float $seconds, int $phpLimit): float
+    {
+        if ($phpLimit <= 0) {
+            return max(1.0, $seconds);            // CLI: no script time limit at all
+        }
+        return max(5.0, min($seconds, $phpLimit - self::HEADROOM));
+    }
+
+    /** How to fix a missing https transport, for the 设置 page and error text. */
+    public static function httpsFixHint(): string
+    {
+        return '当前 PHP 无法发起 https 请求（openssl 扩展未启用）：在 php.ini 取消 `;extension=openssl` 的注释并重启服务即可连接云端服务商；' .
+               '不改的话仍可用本地 Ollama（http://127.0.0.1）或内置演示模型。';
+    }
+
+    /**
+     * Per-request environment facts the 设置 page shows, so “测试连接失败” isn’t
+     * a mystery: which model ids this build offers, and whether https works at all.
+     */
+    public static function diagnostics(): array
+    {
+        return [
+            'https'          => self::httpsAvailable(),
+            'https_hint'     => self::httpsAvailable() ? '' : self::httpsFixHint(),
+            'transports'     => implode(', ', stream_get_transports()),
+            'php'            => PHP_VERSION,
+        ];
+    }
+
+    /** @return array<string,array<string,mixed>> provider key => metadata */
+    public static function providers(): array
+    {
+        return [
+            'mock' => [
+                'label'         => '内置演示模型（离线，不联网）',
+                'base'          => '',
+                'default_model' => 'triphase-mock',
+                'key_required'  => false,
+            ],
+            'ollama' => [
+                'label'         => '本地 Ollama（OpenAI 兼容，数据不出本机）',
+                'base'          => 'http://127.0.0.1:11434/v1',
+                'default_model' => 'qwen2.5:7b',
+                'key_required'  => false,
+                'models'        => ['qwen2.5:7b', 'qwen2.5:14b', 'llama3.1:8b', 'deepseek-r1:7b'],
+                'fast_params'   => ['think' => false],
+            ],
+            'openai' => [
+                'label'         => 'OpenAI',
+                'base'          => 'https://api.openai.com/v1',
+                'default_model' => 'gpt-4o-mini',
+                'key_required'  => true,
+                'models'        => ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini'],
+            ],
+            'deepseek' => [
+                'label'         => 'DeepSeek（V4）',
+                'base'          => 'https://api.deepseek.com',
+                'default_model' => 'deepseek-v4-flash',
+                'key_required'  => true,
+                'models'        => ['deepseek-v4-flash', 'deepseek-v4-pro'],
+                // V4 的正式版 ID（官方文档：base_url 不变，model 改成这两个）。
+                // 旧的 deepseek-chat / deepseek-reasoner 仍可用，但不再是预设选项。
+                // 实测（同一条「新建线索」指令）：默认带思考 3.5s 且只回一个空计划；
+                // thinking=disabled 1.2s 且直接给出可执行的 create_lead —— 所以默认关掉思考。
+                'fast_params'   => ['thinking' => ['type' => 'disabled']],
+            ],
+            'moonshot' => [
+                'label'         => '月之暗面 Kimi',
+                'base'          => 'https://api.moonshot.cn/v1',
+                'default_model' => 'moonshot-v1-8k',
+                'key_required'  => true,
+                'models'        => ['moonshot-v1-8k', 'moonshot-v1-32k', 'kimi-latest'],
+            ],
+            'dashscope' => [
+                'label'         => '阿里通义千问（百炼 DashScope 兼容模式）',
+                'base'          => 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                'default_model' => 'qwen3.8-flash',
+                'key_required'  => true,
+                'models'        => ['qwen3.8-max', 'qwen3.8-max-0902', 'qwen3.8-flash', 'qwen3.7-plus'],
+                'fast_params'   => ['enable_thinking' => false],
+            ],
+            'zhipu' => [
+                'label'         => '智谱 GLM（BigModel 开放平台）',
+                'base'          => 'https://open.bigmodel.cn/api/paas/v4',
+                // GLM-5.3-Flash：强制思考的原生多模态模型，1M 上下文、1/10 于 GLM-5.3 的价格，
+                // 处理本功能这种「读一句指令、回一个计划」最划算。
+                'default_model' => 'glm-5.3-flash',
+                'key_required'  => true,
+                // 只列标准 API（按量付费端点）确实在服的模型：glm-5.3 的文本 API 官方标注
+                // “即将上线”，预设里放一个还调不通的 id 等于让管理员一保存就收 400。
+                'models'        => ['glm-5.3-flash', 'glm-4.7-flash', 'glm-5.2'],
+                // GLM-5.3 / 5.3-Flash 强制开启思考：官方文档明说 thinking.type 传 disabled 会报错，
+                // 所以快速模式不能像 DeepSeek / MiMo 那样“关掉思考”，改用思考档位开关 reasoning_effort
+                // （low = 轻度思考；默认 max 是深度思考，一句“新建线索”也要想很久）。
+                'fast_params'   => ['reasoning_effort' => 'low'],
+                // 本功能只接受一个 JSON 对象（{reply,actions}）：json_object 模式由服务端保证
+                // 语法合法，避开“带围栏/带解说的回复解析失败”这一整类报错（与 MiMo 同一处置）。
+                'json_mode'     => true,
+                // 强制思考的模型把思考 token 也算进 max_tokens：设置页里最小的 400/800 会全花在
+                // 思考阶段，拿回一个空 content（官方也建议 max_tokens ≥ 1024）。给一个下限。
+                'tokens_floor'  => 2048,
+                'note'          => 'GLM-5.3-Flash 强制开启思考、不能关闭（传 thinking.type=disabled 会报错），'
+                                   . '所以“快速模式”发送的是 reasoning_effort=low（轻度思考）。'
+                                   . '控制台：bigmodel.cn（建 Key / 看余额）。',
+            ],
+            'mimo' => [
+                'label'         => '小米 MiMo（Xiaomi，OpenAI 兼容）',
+                'base'          => 'https://api.xiaomimimo.com/v1',
+                // 官方模型列表（2026-07-15）：v2.5 与 v2.5-pro 都是 1M 上下文 / 128K 输出，
+                // 都支持函数调用与结构化输出；v2 系列（mimo-v2-pro / v2-flash / v2-omni / v2-tts）
+                // 已于 2026-06-30 下线、名字失效，所以一个也不列：
+                // 预设里放一个不存在的 model id，管理员一保存就是 400。
+                'default_model' => 'mimo-v2.5',
+                'key_required'  => true,
+                'models'        => ['mimo-v2.5', 'mimo-v2.5-pro'],
+                // 深度思考默认开着：一句“新建线索”也要先想几十秒，而且思考模式下
+                // temperature / top_p 会被服务端强制改写。与 deepseek 同一处置：快速模式里关掉。
+                'fast_params'   => ['thinking' => ['type' => 'disabled']],
+                // 官方文档里输出长度参数叫 max_completion_tokens（不出现 max_tokens），名字发错轻则无效重则 400
+                'max_tokens_key' => 'max_completion_tokens',
+                // 本功能只接受一个 JSON 对象（{reply,actions}）：json_object 模式由服务端保证语法合法，
+                // 避开“带围栏/带解说的回复解析失败”这一整类报错
+                'json_mode'     => true,
+                // 官方 curl 示例用 api-key 头，OpenAI SDK 走 Authorization: Bearer；两个都发，
+                // 不认的那个会被忽略，不会出现“Key 明明填对了却 401”
+                'key_header'    => 'api-key',
+                // Token Plan（订阅套餐）与按量付费不同域名、不同前缀的 Key（tp- 开头）
+                'note'          => '按量付费的 Key 以 sk 开头；若你买的是 Token Plan，把上方“接口地址”改成'
+                                   . ' https://token-plan-cn.xiaomimimo.com/v1，并用控制台里那把 tp 开头的 Key。'
+                                   . '控制台：platform.xiaomimimo.com（建 Key / 看余额）。',
+            ],
+            'siliconflow' => [
+                'label'         => '硅基流动 SiliconFlow',
+                'base'          => 'https://api.siliconflow.cn/v1',
+                'default_model' => 'Qwen/Qwen2.5-7B-Instruct',
+                'key_required'  => true,
+                'models'        => ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V3'],
+            ],
+            'custom' => [
+                'label'         => '自定义 OpenAI 兼容端点',
+                'base'          => '',
+                'default_model' => '',
+                'key_required'  => false,
+            ],
+        ];
+    }
+
+    /** Effective configuration: env override > 设置里的值 > 服务商默认. */
+    public static function config(): array
+    {
+        $env = static function (string $name): ?string {
+            $v = getenv($name);
+            if ($v === false || $v === '') {
+                $v = $_ENV[$name] ?? $_SERVER[$name] ?? '';
+            }
+            $v = trim((string) $v);
+            return $v === '' ? null : $v;
+        };
+
+        $providerKey = $env('AI_PROVIDER') ?? (string) Setting::get('ai_provider', 'mock');
+        if (!isset(self::providers()[$providerKey])) {
+            $providerKey = 'mock';
+        }
+        $provider = self::providers()[$providerKey];
+
+        $baseUrl = $env('AI_BASE_URL') ?? trim((string) Setting::get('ai_base_url', ''));
+        if ($baseUrl === '') {
+            $baseUrl = $provider['base'];
+        }
+        $apiKey = $env('AI_API_KEY') ?? (string) Setting::get('ai_api_key', '');
+
+        // 输出长度：'' 是“从未填过”（用 800），'0' 是设置页里的“不限制（交给服务商）”，
+        // 必须真的变成 0 —— 之前用 ?: 会把字符串 '0' 当成空值又填回 800，那个选项等于白给。
+        $maxTokens = trim((string) Setting::get('ai_max_tokens', ''));
+        $maxTokens = $maxTokens === '' ? 800 : max(0, (int) $maxTokens);
+
+        return [
+            'enabled'      => (($env('AI_ENABLED') ?? (string) Setting::get('ai_enabled', '0')) === '1'),
+            'auto_apply'   => (($env('AI_MODE') ?? (string) Setting::get('ai_mode', 'preview')) === 'auto'),
+            'provider'     => $providerKey,
+            'label'        => $provider['label'],
+            'needs_key'    => (bool) $provider['key_required'],
+            'base_url'     => $baseUrl,
+            'model'        => ($env('AI_MODEL') ?: trim((string) Setting::get('ai_model', ''))) ?: $provider['default_model'],
+            'api_key'      => $apiKey,
+            'key_from_env' => $env('AI_API_KEY') !== null,
+            'temperature'  => (float) ((string) Setting::get('ai_temperature', '0.2') ?: 0.2),
+            'timeout'      => max(5.0, min(self::MAX_TIMEOUT, (float) (Setting::get('ai_timeout', '') ?: self::DEFAULT_TIMEOUT))),
+            'max_tokens'   => $maxTokens,
+            // “快速模式”：把思考型模型改成直接作答。关掉思考是本机实测最大的提速来源。
+            'fast_mode'    => ($env('AI_FAST_MODE') ?? (string) Setting::get('ai_fast_mode', '1')) !== '0',
+            'fast_params'  => is_array($provider['fast_params'] ?? null) ? $provider['fast_params'] : [],
+            // 服务商之间的参数名差异都在这几个预设字段里，不在代码里写死域名判断
+            'max_tokens_key' => (string) ($provider['max_tokens_key'] ?? 'max_tokens'),
+            // 输出长度的下限：强制思考的服务商（智谱 GLM-5.3）思考 token 也算进这个上限，
+            // 设置页里最小的档位会让 content 变成空字符串。0 = 没有下限。
+            'tokens_floor'   => (int) ($provider['tokens_floor'] ?? 0),
+            'json_mode'    => (bool) ($provider['json_mode'] ?? false),
+            'key_header'   => (string) ($provider['key_header'] ?? ''),
+            'note'         => (string) ($provider['note'] ?? ''),
+            'suggest_models' => $provider['models'] ?? [],
+        ];
+    }
+
+    /** Show a stored key without exposing it: first 3 + last 4 characters. */
+    public static function maskKey(string $key): string
+    {
+        $len = strlen($key);
+        if ($len === 0) {
+            return '';
+        }
+        if ($len <= 8) {
+            return str_repeat('•', $len);
+        }
+        return substr($key, 0, 3) . str_repeat('•', min(12, max(4, $len - 7))) . substr($key, -4);
+    }
+
+    /**
+     * One chat completion.
+     *
+     * @param array<int,array{role:string,content:string}> $messages
+     * @return array{ok:bool,content:string,error?:string,model:string,latency_ms:int,usage?:array}
+     */
+    public static function chat(array $messages, ?array $override = null): array
+    {
+        $cfg = $override ? array_merge(self::config(), $override) : self::config();
+        $t0  = microtime(true);
+        $fail = static function (string $message) use ($cfg, $t0): array {
+            return ['ok' => false, 'content' => '', 'error' => $message, 'model' => (string) $cfg['model'],
+                    'latency_ms' => (int) round((microtime(true) - $t0) * 1000)];
+        };
+
+        if (!$cfg['enabled']) {
+            return $fail('AI 助手未启用：请先在 设置 → AI 助手 里开启。');
+        }
+        if (($cfg['provider'] ?? '') === 'mock') {
+            return $fail('演示模型由 Ai::complete() 在本地处理，不应到达 AiClient。');
+        }
+        $url = self::chatUrl((string) $cfg['base_url']);
+        if (!$url['ok']) {
+            return $fail($url['error']);
+        }
+        $endpoint = $url['url'];
+        if ($cfg['needs_key'] && $cfg['api_key'] === '') {
+            return $fail('缺少 API Key：请在 设置 → AI 助手 填写，或在 .env 里设置 AI_API_KEY。');
+        }
+
+        $payload = [
+            'model'       => $cfg['model'],
+            'messages'    => $messages,
+            'temperature' => $cfg['temperature'],
+            'stream'      => false,
+        ];
+        // Bound the answer: an unbounded completion is the single biggest cause of
+        // a 30-60 s wait, and a plan needs far fewer tokens than a chat reply.
+        if ((int) ($cfg['max_tokens'] ?? 0) > 0) {
+            // 名字由服务商定：MiMo 只认 max_completion_tokens（官方示例仍用这个名字），
+            // 传统的 OpenAI 兼容端点用 max_tokens。
+            // 值也可能被预设抬高（tokens_floor）：思考型模型的思考 token 与正文共用这个上限，
+            // 太小会在思考阶段就用完、正文回空——比多给几百 token 难受得多。
+            // 「不限制」（填 0）的语义不变：0 依然不发这个参数。
+            $limit = max((int) $cfg['max_tokens'], (int) ($cfg['tokens_floor'] ?? 0));
+            $payload[(string) ($cfg['max_tokens_key'] ?? '') ?: 'max_tokens'] = $limit;
+        }
+
+        $note = '';
+        $fast = !empty($cfg['fast_mode']) && !empty($cfg['fast_params']) ? (array) $cfg['fast_params'] : [];
+        // 可选参数 = 服务商专属的开关（关思考、JSON 模式）。它们不是协议必需项：
+        // 端点不认时就整组去掉重试一次，而不是把用户的请求直接失败掉。
+        $optional = $fast;
+        if (!empty($cfg['json_mode'])) {
+            $optional['response_format'] = ['type' => 'json_object'];
+        }
+        if ($optional) {
+            $payload = array_merge($payload, $optional);
+        }
+
+        $keyHeader = (string) ($cfg['key_header'] ?? '');
+        $timeout = self::allowTime((float) $cfg['timeout']);
+        $res = self::postJson($endpoint, $payload, (string) $cfg['api_key'], $timeout, $keyHeader);
+        if (!$res['ok'] && $optional && self::rejectsParam((string) $res['error'], array_keys($optional))) {
+            // The endpoint does not know the parameter (a proxy, an older gateway).
+            // Fall back once instead of failing the user's request.
+            $res = self::postJson($endpoint, array_diff_key($payload, array_flip(array_keys($optional))),
+                (string) $cfg['api_key'], $timeout, $keyHeader);
+            $note = '（该接口不接受 ' . implode(' / ', array_keys($optional))
+                . ' 参数，已改用默认回复方式）';
+        }
+        $ms  = (int) round((microtime(true) - $t0) * 1000);
+
+        if (!$res['ok']) {
+            return ['ok' => false, 'content' => '', 'error' => self::redact((string) $res['error'], $cfg),
+                    'model' => (string) $cfg['model'], 'latency_ms' => $ms];
+        }
+
+
+        $body = $res['json'];
+        $text = $body['choices'][0]['message']['content'] ?? '';
+        if (is_array($text)) {
+            // Some gateways return content as [{type:'text', text:'…'}]
+            $text = implode('', array_map(static fn($p) => (string) (is_array($p) ? ($p['text'] ?? '') : $p), $text));
+        }
+        if (trim((string) $text) === '') {
+            // Thinking models (DeepSeek V4 with reasoning on, Qwen3 in thinking mode)
+            // can leave `content` empty and put everything in `reasoning_content`.
+            // Reading it back is better than reporting a silent model.
+            $alt = $body['choices'][0]['message']['reasoning_content']
+                ?? $body['choices'][0]['message']['reasoning']
+                ?? $body['choices'][0]['delta']['content']
+                ?? '';
+            if (is_string($alt) && trim($alt) !== '') {
+                $text = $alt;
+            }
+        }
+        if (trim((string) $text) === '') {
+            return ['ok' => false, 'content' => '', 'notice' => $note, 'error' => '模型返回了空内容。'
+                    . ($fast ? '' : '（可在 设置 → AI 助手 开启“快速模式”，让思考型模型直接作答）'),
+                    'model' => (string) $cfg['model'], 'latency_ms' => $ms];
+        }
+
+        return [
+            'ok'         => true,
+            'content'    => (string) $text,
+            'model'      => (string) (($body['model'] ?? '') ?: $cfg['model']),
+            'latency_ms' => $ms,
+            'notice'     => $note,
+            'usage'      => is_array($body['usage'] ?? null) ? $body['usage'] : [],
+        ];
+    }
+
+    /**
+     * Ask the endpoint which models it offers (设置 → 拉取模型列表).
+     *
+     * @return array{ok:bool,models?:array<int,string>,error?:string}
+     */
+    public static function listModels(?array $override = null): array
+    {
+        $cfg = $override ? array_merge(self::config(), $override) : self::config();
+        // 没有 Key 就不要把请求发出去：对方只能回 401，而在审计与错误里留下一个
+        // “接口自己报的错”，不如直接说“这里还差一把 Key”（与 chat() 同一口径）。
+        if ($cfg['needs_key'] && (string) $cfg['api_key'] === '') {
+            return ['ok' => false, 'error' => '缺少 API Key：请在 设置 → AI 助手 填写，或在 .env 里设置 AI_API_KEY。'];
+        }
+        $url = self::chatUrl((string) $cfg['base_url']);
+        if (!$url['ok']) {
+            return ['ok' => false, 'error' => $url['error']];
+        }
+        $modelsUrl = preg_replace('~/chat/completions$~', '', $url['url']) . '/models';
+        $res = self::postJson($modelsUrl, null, (string) $cfg['api_key'], self::allowTime(15.0),
+            (string) ($cfg['key_header'] ?? ''));
+        if (!$res['ok']) {
+            return ['ok' => false, 'error' => self::redact((string) $res['error'], $cfg)];
+        }
+        $ids = [];
+        foreach ((array) ($res['json']['data'] ?? []) as $row) {
+            if (!empty($row['id'])) {
+                $ids[] = (string) $row['id'];
+            }
+        }
+        sort($ids);
+        return ['ok' => true, 'models' => $ids];
+    }
+
+    /**
+     * Chat-completions URL built from the configured base, or an error when the
+     * address is unusable (scheme allow-list + https outside localhost).
+     *
+     * @return array{ok:bool,url?:string,error?:string}
+     */
+    private static function chatUrl(string $base): array
+    {
+        $bad = static fn(string $why): array => ['ok' => false, 'error' => $why];
+
+        if (trim($base) === '') {
+            return $bad('缺少接口地址：该服务商没有预设地址，请在 设置 → AI 助手 的“接口地址”里填完整地址，或换有预设的服务商。');
+        }
+        $parts = parse_url(trim($base));
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            // 把当前存的那个值拼进错误里：不拼的话，用户看到“地址不完整”却不知道哪里不完整
+            //（实际情定：模型下拉的候选项落到了“接口地址”框里，存成了 mimo-v2.5）
+            return $bad('接口地址不完整：现在用的是「' . textClip(trim($base), 60) . '」，'
+                . '需要类似 https://api.example.com/v1 的完整地址（在 设置 → AI 助手 → 接口地址 改，'
+                . '或清空该框改用服务商预设）。');
+        }
+        $scheme = strtolower((string) $parts['scheme']);
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return $bad('接口地址只支持 http / https。');
+        }
+        // Credentials in the URL would end up in server logs — refuse them.
+        if (isset($parts['user'])) {
+            return $bad('接口地址不允许包含用户名/密码，请把凭据放在 API Key 里。');
+        }
+        $host  = strtolower((string) $parts['host']);
+        $local = in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true);
+        if (!$local && $scheme !== 'https') {
+            return $bad('非本机地址必须使用 https，避免密钥与客户资料在网络上明文传输。');
+        }
+        $path = rtrim((string) ($parts['path'] ?? ''), '/');
+        if (!str_ends_with($path, '/chat/completions')) {
+            $path .= '/chat/completions';
+        }
+        return ['ok' => true, 'url' => $scheme . '://' . $host
+            . (isset($parts['port']) ? ':' . $parts['port'] : '') . $path];
+    }
+
+    /**
+     * POST (or GET when $payload is null) JSON over PHP streams.
+     *
+     * @return array{ok:bool,json:array,error:string,status:int,raw:string}
+     */
+    private static function postJson(string $url, ?array $payload, string $key, float $timeout, string $keyHeader = ''): array
+    {
+        if (is_callable(self::$transport)) {   // tests (and any custom transport) skip the checks below
+            return call_user_func(self::$transport, $url, $payload, $key, $timeout, $keyHeader)
+                + ['json' => [], 'error' => '', 'status' => 0, 'raw' => ''];
+        }
+
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Connection: close',
+            'User-Agent: ' . APP_NAME . '/' . APP_VERSION . ' (AI assistant)',
+        ];
+        if ($key !== '') {
+            $headers[] = 'Authorization: Bearer ' . $key;
+            // 有的服务商（小米 MiMo 的官方 curl 示例）用 api-key 头而不是 Bearer。
+            // 两个都发：多余的请求头会被服务端忽略，少一个则是“Key 正确却 401”。
+            if ($keyHeader !== '') {
+                $headers[] = $keyHeader . ': ' . $key;
+            }
+        }
+
+        $http = [
+            'method'          => $payload === null ? 'GET' : 'POST',
+            'header'          => implode("\r\n", $headers),
+            'ignore_errors'   => true,      // we want the provider's error body
+            'follow_location' => 0,
+            'timeout'         => max(1.0, $timeout),
+            'connect_timeout' => self::CONNECT_TIMEOUT,
+            'protocol_version' => 1.1,
+        ];
+        if ($payload !== null) {
+            $content = json_encode($payload, JSON_UNESCAPED_UNICODE);
+            $http['content'] = $content;
+            $http['header'] .= "\r\nContent-Length: " . strlen((string) $content);
+        }
+
+        if (str_starts_with($url, 'https://') && !self::httpsAvailable()) {
+            // Fail fast with a fix instruction instead of a mystery "cannot connect".
+            return ['ok' => false, 'json' => [], 'error' => self::httpsFixHint(), 'status' => 0, 'raw' => ''];
+        }
+
+        $raw = @file_get_contents($url, false, stream_context_create(['http' => $http]));
+        if ($raw === false) {
+            $err = '';
+            foreach (($http_response_header ?? []) as $line) {
+                if (str_starts_with((string) $line, 'HTTP/')) {
+                    $err = $line;
+                }
+            }
+            // No status line at all = never got a response: unreachable or too slow.
+            // Say which, and how to fix it, instead of a bare "connection failed".
+            if ($err === '') {
+                return ['ok' => false, 'json' => [], 'status' => 0, 'raw' => '', 'error' => self::noResponseError($url, $timeout)];
+            }
+            return ['ok' => false, 'json' => [], 'error' => '无法连接 AI 接口' . ($err ? "（{$err}）" : '')
+                        . '：请检查接口地址、网络与超时设置。', 'status' => 0, 'raw' => ''];
+        }
+
+        $status = 0;
+        foreach (($http_response_header ?? []) as $line) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string) $line, $m)) {
+                $status = (int) $m[1];
+            }
+        }
+        $json = json_decode((string) $raw, true);
+        if ($status >= 400) {
+            $detail = '';
+            if (is_array($json)) {
+                $detail = (string) ($json['error']['message'] ?? $json['message'] ?? json_encode($json, JSON_UNESCAPED_UNICODE));
+            }
+            return ['ok' => false, 'json' => is_array($json) ? $json : [],
+                    'error' => "AI 接口返回 HTTP {$status}" . ($detail ? "：{$detail}" : ''),
+                    'status' => $status, 'raw' => (string) $raw];
+        }
+        if (!is_array($json)) {
+            return ['ok' => false, 'json' => [], 'error' => 'AI 接口返回的内容不是合法 JSON。',
+                    'status' => $status, 'raw' => (string) $raw];
+        }
+        return ['ok' => true, 'json' => $json, 'error' => '', 'status' => $status, 'raw' => (string) $raw];
+    }
+
+    /** Never let a key leak through an error message that echoed the request. */
+    private static function redact(string $text, array $cfg): string
+    {
+        $out = $text;
+        if (!empty($cfg['api_key'])) {
+            $out = str_replace((string) $cfg['api_key'], self::maskKey((string) $cfg['api_key']), $out);
+        }
+        return textClip($out, 500);
+    }
+}

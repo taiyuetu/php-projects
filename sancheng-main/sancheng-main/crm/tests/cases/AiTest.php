@@ -1,0 +1,867 @@
+<?php
+
+/**
+ * Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
+ */
+/**
+ * AI 助手 — 计划生成、校验、执行与审计。
+ *
+ * Everything here runs offline: either the built-in 演示模型 (deterministic, no
+ * network) or AiClient::$transport, a fake HTTP layer. A test suite that phoned
+ * a real provider would be slow, costly and non-reproducible.
+ *
+ * The behaviour under test is the safety model, not the language model:
+ *   - unknown tools, unknown parameters and bad values are refused
+ *   - a plan may not touch records its owner cannot manage (canManageResource)
+ *   - nothing reaches the database until the plan is executed
+ *   - the API key never comes back out of a page or an error message
+ */
+require __DIR__ . '/../bootstrap.php';
+
+function aiUser(string $email, string $name, string $role = 'sales'): int
+{
+    return (int) (new User())->register($name, $email, $name, $role);
+}
+
+/** Point the settings at a fake OpenAI-compatible endpoint. */
+function aiUseFakeTransport(array $overrides = []): void
+{
+    $base = array_merge([
+        'ai_enabled' => '1',
+        'ai_provider' => 'openai',
+        'ai_model' => 'gpt-4o-mini',
+        'ai_api_key' => 'sk-test-1234567890abcdef',
+        'ai_mode' => 'preview',
+        'ai_base_url' => '',        // always reset: these tests switch endpoints
+    ], $overrides);
+    (new Setting())->setMany($base, 1);
+
+    // Default transport: answer with an empty plan so nothing hits the network.
+    if (AiClient::$transport === null) {
+        AiClient::$transport = static fn() => ['ok' => true,
+            'json' => ['choices' => [['message' => ['content' => '{"reply":"ok","actions":[]}']]]],
+            'error' => '', 'status' => 200, 'raw' => ''];
+    }
+}
+
+/**
+ * Arm a transport that records the next request body into aiSeen(), answering with
+ * an empty plan. Call it before chat(), read aiSeen() after — a returned array
+ * would be a copy taken too early.
+ */
+function aiCapturePayload(): void
+{
+    $GLOBALS['ai_seen'] = [];
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) {
+        $GLOBALS['ai_seen'] = (array) $payload;
+        return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '{"reply":"ok","actions":[]}']]]],
+                'error' => '', 'status' => 200, 'raw' => ''];
+    };
+}
+
+/** The payload recorded by aiCapturePayload(). */
+function aiSeen(): array
+{
+    return (array) ($GLOBALS['ai_seen'] ?? []);
+}
+
+/** Put the AI settings back to the state the other cases expect. */
+function aiResetSettings(): void
+{
+    AiClient::$transport = null;
+    (new Setting())->setMany(['ai_enabled' => '1', 'ai_provider' => 'mock', 'ai_mode' => 'preview',
+        'ai_model' => '', 'ai_base_url' => '', 'ai_api_key' => '',
+        'ai_fast_mode' => '1', 'ai_timeout' => '45', 'ai_max_tokens' => '800'], 1);
+    Setting::flushCache();
+}
+/** Answer with a fixed assistant message. */
+function aiJsonTransport(string $content): void
+{
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use ($content) {
+        return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => $content]]], 'model' => 'fake-1'],
+                'error' => '', 'status' => 200, 'raw' => ''];
+    };
+}
+
+// ------------------------------------------------------------------- defaults
+
+function test_ai_is_off_by_default_and_refuses_to_run(): void
+{
+    (new Setting())->setMany(['ai_enabled' => '0', 'ai_provider' => 'mock'], 1);
+    $cfg = AiClient::config();
+    assertTrue($cfg['enabled'] === false, 'AI ships disabled');
+    assertEquals('mock', $cfg['provider'], 'the default provider is the offline demo model');
+
+    $res = Ai::complete('随便做点什么');
+    assertTrue($res['ok'] === false, 'a disabled assistant refuses');
+    assertContains('未启用', (string) $res['error']);
+}
+
+// ------------------------------------------------------------- plan lifecycle
+
+function test_demo_model_plans_a_lead_from_raw_text(): void
+{
+    (new Setting())->setMany(['ai_enabled' => '1', 'ai_provider' => 'mock', 'ai_mode' => 'preview'], 1);
+
+    $instruction = "客户 Robert Fox（robert@globex.com，+1-5550102）今天来信，"
+        . "公司 Globex，想采购 200 套轴承，预计 30000 美元，来源 WhatsApp。";
+    $plan = Ai::complete($instruction);
+    assertTrue($plan['ok'], 'demo model produced a plan: ' . ($plan['error'] ?? ''));
+    assertTrue(count($plan['actions']) >= 1, 'at least one action');
+
+    $first = $plan['actions'][0];
+    assertEquals('create_lead', $first['tool'], 'the expected tool');
+    $checked = Ai::validatePlan($plan['actions'], 1);
+    assertTrue($checked['blocked'] === false, 'plan validates cleanly: ' . implode('；', $checked['errors']));
+
+    // The whole point of preview mode: a plan is not data yet.
+    $before = (new Lead())->count();
+    $run = Ai::execute($checked['actions'], 1);
+    assertEquals(1, $run['applied'], 'one action applied');
+    assertEquals($before + 1, (new Lead())->count(), 'the lead row appeared only after executing');
+
+    $lead = (new Lead())->find((int) $run['results'][0]['id']);
+    assertEquals('Robert Fox', $lead['contact_name'], 'contact extracted');
+    assertEquals('Globex', $lead['company'], 'company extracted');
+    assertEquals('robert@globex.com', $lead['contact_email'], 'email extracted');
+    assertEquals(30000.0, (float) $lead['value'], 'money extracted');
+    assertEquals('WhatsApp', $lead['source'], 'source recognised');
+    assertEquals(1, (int) $lead['owner_id'], 'the AI assigns ownership to the requesting user');
+}
+
+function test_preview_mode_writes_nothing_until_executed(): void
+{
+    (new Setting())->setMany(['ai_enabled' => '1', 'ai_provider' => 'mock', 'ai_mode' => 'preview'], 1);
+    $before = (new Lead())->count();
+    $plan = Ai::complete('新建线索：张网，邮箱 zhangwang@example.com，来源 邮件');
+    $checked = Ai::validatePlan($plan['actions'], 1);
+    assertTrue($checked['blocked'] === false, 'valid plan');
+    assertEquals($before, (new Lead())->count(), 'planning alone never writes');
+    assertTrue(count($checked['actions']) > 0, 'there was something to confirm');
+}
+
+// ------------------------------------------------------------------ validation
+
+function test_the_model_cannot_invent_tools_parameters_or_values(): void
+{
+    $checked = Ai::validatePlan([
+        // 1) tool that does not exist (the classic prompt-injection wish)
+        ['tool' => 'delete_all_customers', 'args' => []],
+        // 2) parameter outside the whitelist
+        ['tool' => 'create_lead', 'args' => ['title' => 'ok', 'owner_id' => 99, 'is_admin' => true]],
+        // 3) bad values: status/enum, email, money, date
+        ['tool' => 'update_lead_status', 'args' => ['lead_id' => 1, 'status' => 'archived_forever']],
+        ['tool' => 'create_lead', 'args' => ['title' => 'x', 'contact_email' => 'not-an-email']],
+        ['tool' => 'create_lead', 'args' => ['title' => 'x', 'value' => 9e17]],
+        ['tool' => 'add_follow_up', 'args' => ['customer_id' => 1, 'title' => 'x', 'next_date' => '明年再说吧']],
+        // 4) missing required argument
+        ['tool' => 'create_lead', 'args' => ['contact_name' => '没有标题']],
+        // 5) a legitimate action mixed in
+        ['tool' => 'create_lead', 'args' => ['title' => '合法线索']],
+    ], 1);
+
+    $byIndex = array_column($checked['actions'], null, 'index');
+    assertTrue($checked['blocked'], 'a plan with any bad step is blocked');
+    assertTrue(isset($byIndex[0]['errors'][0]), 'unknown tool refused');
+    assertContains('不存在的工具', implode(' ', $byIndex[0]['errors']));
+    assertContains('不接受参数', implode(' ', $byIndex[1]['errors']), 'unknown parameter refused');
+    assertContains('不在可选值', implode(' ', $byIndex[2]['errors']), 'enum whitelist enforced');
+    assertContains('不是合法邮箱', implode(' ', $byIndex[3]['errors']));
+    assertContains('超出合理范围', implode(' ', $byIndex[4]['errors']), 'absurd money refused');
+    assertContains('无法识别为日期', implode(' ', $byIndex[5]['errors']));
+    assertContains('必填', implode(' ', $byIndex[6]['errors']));
+    assertEquals([], $byIndex[7]['errors'], 'the well-formed action is still fine');
+
+    $run = Ai::execute(array_values($byIndex), 1);
+    assertEquals(1, $run['applied'], 'only the valid step executed');
+    assertEquals(7, $run['refused'], 'the rest were refused, not silently fixed');
+    foreach ($run['results'] as $r) {
+        assertTrue(!empty($r['ok']) || !empty($r['skipped']), 'refusals are reported, never thrown');
+    }
+}
+
+function test_a_sales_account_cannot_touch_another_owners_records(): void
+{
+    $boss  = aiUser('boss@example.com', '老板', 'admin');
+    $rep   = aiUser('rep@example.com', '小销售');
+    $other = aiUser('other@example.com', '隔壁');
+
+    $mine    = (int) (new Customer())->create(['name' => '我负责的', 'status' => 'active', 'owner_id' => $rep]);
+    $theirs  = (int) (new Customer())->create(['name' => '别人负责的', 'status' => 'active', 'owner_id' => $other]);
+    $public  = (int) (new Customer())->create(['name' => '公海客户', 'status' => 'active', 'owner_id' => null]);
+
+    $_SESSION['user_id'] = $rep;
+    $_SESSION['user'] = ['id' => $rep, 'role' => 'sales'];
+    User::flushIdentityCache();
+
+    $checked = Ai::validatePlan([
+        ['tool' => 'add_follow_up', 'args' => ['customer_id' => $mine, 'title' => '跟一下']],
+        ['tool' => 'add_follow_up', 'args' => ['customer_id' => $theirs, 'title' => '偷着跟']],
+        ['tool' => 'add_follow_up', 'args' => ['customer_id' => $public, 'title' => '认领公海']],
+        ['tool' => 'update_customer', 'args' => ['customer_id' => 999999, 'phone' => '555']],
+        // an AI request to hand data to itself as admin is just another parameter
+        ['tool' => 'update_customer', 'args' => ['customer_id' => $theirs, 'owner_id' => $rep]],
+    ], $rep);
+
+    $by = array_column($checked['actions'], null, 'index');
+    assertEquals([], $by[0]['errors'], "the rep's own customer is fine");
+    assertContains('其他同事负责', implode(' ', $by[1]['errors']), "someone else's customer is refused");
+    assertEquals([], $by[2]['errors'], 'unassigned (公海) records stay reachable');
+    assertContains('找不到对应记录', implode(' ', $by[3]['errors']), 'a hallucinated id is refused');
+    assertTrue($by[4]['errors'] !== [], 'unknown parameter / ownership both refused');
+
+    $run = Ai::execute(array_values($by), $rep);
+    assertEquals(2, $run['applied'], 'own + public executed');
+    assertEquals(3, $run['refused'], 'the three bad steps did not run');
+    unset($_SESSION['user_id'], $_SESSION['user']);
+}
+
+function test_a_validated_plan_targets_records_that_exist(): void
+{
+    $_SESSION['user_id'] = 1;
+    $cust = (int) (new Customer())->create(['name' => '快照客户', 'status' => 'active', 'owner_id' => 1]);
+    $digest = Ai::contextDigest(1);
+    assertContains('快照客户', $digest, 'the prompt carries real records so ids are not guessed');
+    assertContains((string) $cust, $digest, 'including the id');
+    // a sales user must not see someone else's customer in the snapshot
+    $stranger = aiUser('stranger@example.com', '陌生人');
+    (new Customer())->create(['name' => '别人家的客户', 'status' => 'active', 'owner_id' => 1]);
+    $limited = Ai::contextDigest($stranger);
+    assertTrue(!str_contains($limited, '别人家的客户'), 'the snapshot is scoped to the caller');
+}
+
+/**
+ * Presets must name models that actually exist at the endpoint — otherwise the
+ * first thing an admin does is hit a 400. Also asserts the URL each preset
+ * produces, using the injected transport so no network (or openssl) is needed.
+ */
+function test_provider_presets_name_current_model_ids(): void
+{
+    $p = AiClient::providers();
+
+    assertEquals(['deepseek-v4-flash', 'deepseek-v4-pro'], $p['deepseek']['models'], 'DeepSeek V4 ids');
+    assertEquals('deepseek-v4-flash', $p['deepseek']['default_model'], 'V4 Flash is the economical default');
+    assertEquals('https://api.deepseek.com', $p['deepseek']['base'], '官方 base_url 不带 /v1');
+
+    assertTrue(in_array('qwen3.8-max', $p['dashscope']['models'], true), 'Qwen 3.8 Max is offered');
+    assertTrue(in_array('qwen3.8-flash', $p['dashscope']['models'], true), 'Qwen 3.8 Flash is offered');
+    assertEquals('qwen3.8-flash', $p['dashscope']['default_model'], 'Qwen 3.8 Flash is the default');
+    assertEquals('https://dashscope.aliyuncs.com/compatible-mode/v1', $p['dashscope']['base'], '百炼 OpenAI 兼容模式端点');
+
+    // 服务商下拉与这份清单同源，不会各自漂移
+    assertEquals(array_keys($p), array_column(Setting::definitionOptions('ai_provider'), 'value'),
+        'the select offers exactly the known providers');
+    assertTrue(Setting::isSecret('ai_api_key'), 'the API key is declared a secret');
+
+    // 每个预设拼出的请求地址必须就是服务商公布的 chat/completions 路径
+    $expected = [
+        'deepseek'  => 'https://api.deepseek.com/chat/completions',
+        'dashscope' => 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+        'mimo'      => 'https://api.xiaomimimo.com/v1/chat/completions',
+        'zhipu'     => 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    ];
+    foreach ($expected as $provider => $want) {
+        $seen = null;
+        AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use (&$seen) {
+            $seen = $url;
+            return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '{}']]]],
+                    'error' => '', 'status' => 200, 'raw' => ''];
+        };
+        AiClient::chat([['role' => 'user', 'content' => 'hi']], [
+            'enabled' => true, 'provider' => $provider, 'needs_key' => true,
+            'base_url' => $p[$provider]['base'], 'model' => $p[$provider]['default_model'],
+            'api_key' => 'sk-x', 'temperature' => 0.2, 'timeout' => 5.0,
+        ]);
+        assertEquals($want, $seen, "{$provider} chat endpoint");
+        AiClient::$transport = null;
+    }
+}
+
+/**
+ * 智谱 GLM-5.3-Flash 有两处跟别家反着的规矩，全靠预设兜住，否则一用就报错或空回答：
+ *   1. 它强制开启思考，官方文档明说 thinking.type 传 disabled 会报错 —— 所以快速模式不能照抄
+ *      DeepSeek / MiMo 的写法，只能改发 reasoning_effort=low（官方唯一的思考档位开关）；
+ *   2. 思考 token 与正文共用 max_tokens —— 设置页里 400/800 会全花在思考阶段，正文收到空
+ *      （官方建议 ≥1024），所以预设给了 2048 的下限。两条都得钉住：预设一改，症状只是“AI 不回答”。
+ */
+function test_glm_53_flash_is_wired_without_trying_to_disable_thinking(): void
+{
+    $p = AiClient::providers();
+    assertEquals('https://open.bigmodel.cn/api/paas/v4', $p['zhipu']['base'], 'BigModel 开放平台端点');
+    assertEquals('glm-5.3-flash', $p['zhipu']['default_model'], '默认就是 GLM-5.3-Flash');
+    assertTrue(in_array('glm-5.3-flash', $p['zhipu']['models'], true), 'GLM-5.3-Flash 在可选列表里');
+    assertEquals(['reasoning_effort' => 'low'], $p['zhipu']['fast_params'], '快速模式改成轻度思考');
+    assertEquals(false, str_contains(json_encode($p['zhipu']['fast_params']), 'disabled'),
+        'GLM-5.3 强制思考：预设里绝不能出现 thinking.type=disabled');
+    assertEquals(2048, (int) $p['zhipu']['tokens_floor'], '思考 token 也算进输出上限，所以要给下限');
+
+    aiUseFakeTransport(['ai_provider' => 'zhipu', 'ai_model' => '', 'ai_max_tokens' => '400',
+        'ai_fast_mode' => '1']);
+    $cfg = AiClient::config();
+    assertEquals('glm-5.3-flash', $cfg['model'], '模型留空时用服务商默认值');
+    assertEquals(true, $cfg['json_mode'], '走 JSON 模式（本功能的协议就是一个 JSON 对象）');
+    assertEquals(2048, (int) $cfg['tokens_floor'], '下限进了生效配置');
+
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => '新建线索：测试']], $cfg);
+    $seen = aiSeen();
+    assertEquals('low', $seen['reasoning_effort'] ?? null, '轻度思考随请求发出');
+    assertEquals(2048, (int) ($seen['max_tokens'] ?? 0), '小于下限的设置被抬到 2048');
+    assertEquals(['type' => 'json_object'], $seen['response_format'] ?? null, 'JSON 模式随请求发出');
+    assertEquals(false, array_key_exists('thinking', $seen), '一个 thinking 参数都不发（发了就是 400）');
+    assertEquals('glm-5.3-flash', $seen['model'] ?? null, '请求里的模型名');
+
+    // 关掉快速模式 = 回到模型默认的深度思考；「不限制」（0）的语义不被下限改写
+    aiUseFakeTransport(['ai_provider' => 'zhipu', 'ai_fast_mode' => '0', 'ai_max_tokens' => '0']);
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => 'hi']], AiClient::config());
+    assertEquals(false, array_key_exists('reasoning_effort', aiSeen()), '关掉快速模式后不再指定思考程度');
+    assertEquals(false, array_key_exists('max_tokens', aiSeen()), '“不限制”就是不发这个参数，下限不改写它');
+    aiResetSettings();
+}
+
+function test_a_missing_https_transport_says_so_instead_of_failing_mysteriously(): void
+{
+    $diag = AiClient::diagnostics();
+    assertTrue(is_bool($diag['https']), 'diagnostics reports https availability');
+    assertEquals(PHP_VERSION, $diag['php'], 'the PHP version is reported');
+    if ($diag['https']) {
+        assertEquals('', $diag['https_hint'], 'nothing to fix when https works');
+        return;
+    }
+    // This machine is the interesting case: openssl off means cloud providers
+    // cannot be reached, and the message must name the fix.
+    assertContains('openssl', $diag['https_hint']);
+    (new Setting())->setMany(['ai_enabled' => '1', 'ai_provider' => 'deepseek',
+                             'ai_api_key' => 'sk-x', 'ai_model' => 'deepseek-v4-flash'], 1);
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+    assertTrue($res['ok'] === false, 'no request was attempted');
+    assertContains('openssl', (string) $res['error']);
+    (new Setting())->setMany(['ai_enabled' => '0', 'ai_provider' => 'mock', 'ai_api_key' => '', 'ai_model' => ''], 1);
+}
+
+/**
+ * The capability probe must match the real environment. It once asked
+ * stream_get_transports() for the literal "https", which no PHP ever lists
+ * (the transport is "ssl"/"tls"), so a healthy build was told it could not do
+ * https — the kind of false negative that makes an admin chase php.ini forever.
+ */
+function test_https_capability_probe_matches_the_real_environment(): void
+{
+    $transports = stream_get_transports();
+    $expected = extension_loaded('openssl')
+        && (in_array('ssl', $transports, true) || in_array('tls', $transports, true));
+    assertEquals($expected, AiClient::httpsAvailable(), 'the probe mirrors openssl + a TLS transport');
+
+    if (extension_loaded('openssl')) {
+        assertTrue(AiClient::httpsAvailable(), 'with openssl loaded, https must be reported as available');
+        assertEquals('', AiClient::diagnostics()['https_hint'], 'and nothing needs fixing');
+    }
+    if (!in_array('https', $transports, true)) {
+        assertTrue(true, 'sanity: "https" is a URL scheme, never a transport name');
+    }
+}
+
+/**
+ * A slow model must produce a readable error, never a Fatal error on the page.
+ * PHP's own max_execution_time (30 s under php -S / Apache) killed the request
+ * mid-call; now the stream has to give up first, with room to spare.
+ */
+function test_the_timeout_chain_leaves_room_before_php_fatals(): void
+{
+    // pure maths, no set_time_limit() involved
+    assertEquals(20.0, AiClient::effectiveTimeout(45.0, 30), 'php limit 30s -> stream stops at 20s');
+    assertEquals(50.0, AiClient::effectiveTimeout(60.0, 60), 'equal limits -> back off by the headroom');
+    assertEquals(45.0, AiClient::effectiveTimeout(45.0, 0), 'CLI has no script time limit');
+    assertEquals(5.0, AiClient::effectiveTimeout(45.0, 12), 'never below the floor, never above php');
+
+    // the setting drives the budget, and it is clamped to something sane
+    (new Setting())->setMany(['ai_timeout' => '90', 'ai_max_tokens' => '400'], 1);
+    $cfg = AiClient::config();
+    assertEquals(90.0, $cfg['timeout'], '响应超时 comes from 设置');
+    assertEquals(400, $cfg['max_tokens'], '最大回复长度 comes from 设置');
+    (new Setting())->setMany(['ai_timeout' => '99999', 'ai_max_tokens' => '-5'], 1);
+    $clamped = AiClient::config();
+    assertEquals(AiClient::MAX_TIMEOUT, $clamped['timeout'], 'absurd timeouts are clamped');
+    assertEquals(0, $clamped['max_tokens'], '0 = 不限制, never a negative token count');
+    (new Setting())->setMany(['ai_timeout' => '45', 'ai_max_tokens' => '800'], 1);
+}
+
+function test_a_timed_out_model_reports_the_fix_not_a_dead_page(): void
+{
+    // "no response at all" is the timeout / unreachable case: the message must name
+    // the setting to turn, and must not be a PHP fatal.
+    $msg = AiClient::noResponseError('https://api.deepseek.com/chat/completions', 45.0);
+    assertContains('没有收到 AI 响应', $msg);
+    assertContains('响应超时', $msg, 'it names the setting to turn');
+    assertContains('api.deepseek.com', $msg, 'and which endpoint was silent');
+    assertTrue(!str_contains($msg, 'sk-'), 'no credential material in it');
+
+    aiUseFakeTransport();
+    AiClient::$transport = static fn() => ['ok' => false, 'json' => [], 'error' => '', 'status' => 0, 'raw' => ''];
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+    assertTrue($res['ok'] === false, 'a silent provider is reported, not thrown');
+    AiClient::$transport = null;
+}
+
+function test_requests_are_bounded_so_answers_come_back_fast(): void
+{
+    aiUseFakeTransport(['ai_max_tokens' => '600']);
+    $seen = null;
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use (&$seen) {
+        $seen = $payload;
+        return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '{}']]]],
+                'error' => '', 'status' => 200, 'raw' => ''];
+    };
+    AiClient::chat(Ai::messages('新建线索：测试') );
+    assertEquals(600, $seen['max_tokens'], 'max_tokens is actually sent');
+    assertEquals(false, $seen['stream'], 'non-streaming so the reply arrives whole');
+    assertContains('leads.status', $seen['messages'][0]['content'], 'the model gets the real enum values');
+    // 17 tools + enums + rules now fit in this budget. The cap is a regression
+    // guard, not a goal: it used to be 3000 with 7 tools. The point is that the
+    // prompt grows with capability, not without bound.
+    // 工具的参数名必须逐个进提示词（那是能力面：字段清单由表结构生成，24 个工具），
+    // 但总量仍要受控——提示词长度就是用户的等待时间。上限随模块增长时要在 CHANGELOG 里说清为什么。
+    // 8100 → 8300：商品库新增「库存」列（products.inventory，字段清单由表结构生成故自动入提示词），
+    // 实测 8084 → 8104。8300 → 8350：线索新增 wechat 列（同一机制）+ 规则 5b 补一句
+    // 「商机只认客户」，实测 8328。原因都记在 CHANGELOG [Unreleased]。
+    assertTrue(textLength($seen['messages'][0]['content']) < 8350,
+        'the system prompt stays bounded (got ' . textLength($seen['messages'][0]['content']) . ')');
+    AiClient::$transport = null;
+    (new Setting())->setMany(['ai_max_tokens' => '800'], 1);
+}
+
+/**
+ * 快速模式 is the difference between a 1 s usable plan and a 8 s empty answer,
+ * so the parameter, the fallback when a gateway rejects it, and the empty-content
+ * rescue all have to stay wired.
+ */
+function test_fast_mode_sends_the_providers_thinking_switch(): void
+{
+    aiUseFakeTransport(['ai_provider' => 'deepseek', 'ai_fast_mode' => '1']);
+    $cfg = AiClient::config();
+    assertTrue($cfg['fast_mode'], '默认开启');
+    assertEquals(['thinking' => ['type' => 'disabled']], $cfg['fast_params'], 'DeepSeek 的开关来自服务商预设');
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => 'hi']], $cfg);
+    assertEquals(['type' => 'disabled'], aiSeen()['thinking'], '参数确实随请求发出');
+
+    // another provider, another parameter name; a provider without one sends nothing
+    aiUseFakeTransport(['ai_provider' => 'dashscope']);
+    assertEquals(['enable_thinking' => false], AiClient::config()['fast_params'], '通义用 enable_thinking');
+    aiUseFakeTransport(['ai_provider' => 'openai']);
+    assertEquals([], AiClient::config()['fast_params'], 'OpenAI 预设不塞私有参数');
+    aiUseFakeTransport(['ai_provider' => 'deepseek', 'ai_fast_mode' => '0']);
+    $cfg = AiClient::config();
+    assertTrue(!$cfg['fast_mode'], '设置可以关掉');
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => 'hi']], $cfg);
+    assertEquals(false, array_key_exists('thinking', aiSeen()), '关掉后请求里不再有 thinking');
+    aiResetSettings();
+}
+
+function test_a_gateway_that_rejects_the_parameter_falls_back_instead_of_failing(): void
+{
+    aiUseFakeTransport(['ai_provider' => 'deepseek', 'ai_fast_mode' => '1']);
+    $calls = [];
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use (&$calls) {
+        $calls[] = $payload;
+        if (count($calls) === 1) {
+            return ['ok' => false, 'json' => [], 'error' => "unknown parameter: 'thinking'", 'status' => 400, 'raw' => ''];
+        }
+        return ['ok' => true, 'json' => ['choices' => [[
+            'message' => ['content' => '{"reply":"回退成功","actions":[{"tool":"create_lead","args":{"title":"来自回退请求"}}]}'],
+        ]]], 'error' => '', 'status' => 200, 'raw' => ''];
+    };
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']], AiClient::config());
+    assertTrue($res['ok'] === true, '第二次请求成功，用户看不到失败');
+    assertContains('不接受', (string) ($res['notice'] ?? ''), '但会被告知发生了回退');
+    assertEquals(2, count($calls), '只重试了一次');
+    assertEquals(false, array_key_exists('thinking', $calls[1]), '重试时不带该参数');
+    assertTrue(AiClient::rejectsParam('Rate limit exceeded', ['thinking']) === false, '别的 4xx 不会触发无意义重试');
+    aiResetSettings();
+}
+
+/**
+ * 小米 MiMo 是一个 OpenAI 兼容端点，但方言与别人不同：输出长度参数叫
+ * max_completion_tokens、官方 curl 示例用 api-key 头、深度思考默认开着、支持
+ * response_format: json_object（本功能的协议本来就是一个 JSON 对象）。
+ * 这些差异全放在 AiClient::providers() 的预设里，所以必须有测试钉住：
+ * 预设一改，请求体就错，而症状只是“AI 不回答”。
+ */
+function test_mimo_is_wired_with_its_own_dialect(): void
+{
+    $p = AiClient::providers();
+    assertEquals('https://api.xiaomimimo.com/v1', $p['mimo']['base'], '官方 OpenAI 兼容端点');
+    assertEquals(['mimo-v2.5', 'mimo-v2.5-pro'], $p['mimo']['models'], '只列还在服的模型');
+    assertEquals('mimo-v2.5', $p['mimo']['default_model'], '默认给更快更省的 v2.5');
+    assertTrue((bool) $p['mimo']['key_required'], '云端要 Key');
+
+    // v2 系列（2026-06-30 下线、名字失效）一个都不能出现在预设里：选了就是 400
+    $blob = json_encode($p, JSON_UNESCAPED_UNICODE);
+    foreach (['mimo-v2-pro', 'mimo-v2-flash', 'mimo-v2-omni', 'mimo-v2-tts'] as $dead) {
+        assertTrue(strpos($blob, '"' . $dead . '"') === false, '已下线模型不进预设：' . $dead);
+    }
+
+    aiUseFakeTransport(['ai_provider' => 'mimo', 'ai_model' => '', 'ai_max_tokens' => '700']);
+    $cfg = AiClient::config();
+    assertEquals('mimo-v2.5', $cfg['model'], '模型留空时用服务商默认值');
+    assertEquals('max_completion_tokens', $cfg['max_tokens_key'], '输出长度参数名来自预设');
+    assertEquals(true, $cfg['json_mode'], 'MiMo 走 JSON 模式');
+    assertEquals('api-key', $cfg['key_header'], '官方 curl 示例用的那个头');
+    assertEquals(['thinking' => ['type' => 'disabled']], $cfg['fast_params'], '快速模式关掉深度思考');
+
+    $seen = [];
+    $meta = [];
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout,
+                                           string $keyHeader) use (&$seen, &$meta) {
+        $seen  = (array) $payload;
+        $meta  = [$url, $keyHeader];
+        return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '{"reply":"ok","actions":[]}']]]],
+                'error' => '', 'status' => 200, 'raw' => ''];
+    };
+    $res = AiClient::chat([['role' => 'user', 'content' => '新建线索：测试']], $cfg);
+    assertTrue((bool) $res['ok'], '请求成功');
+    assertEquals('https://api.xiaomimimo.com/v1/chat/completions', $meta[0], '拼出的请求地址');
+    assertEquals('api-key', $meta[1], '除了 Bearer，再把服务商认的头名交出去');
+    assertEquals(700, (int) ($seen['max_completion_tokens'] ?? 0), '输出长度用 MiMo 认得的名字');
+    assertEquals(false, array_key_exists('max_tokens', $seen), '不再发它不认的 max_tokens');
+    assertEquals(['type' => 'disabled'], $seen['thinking'] ?? null, '思考关掉（否则一句建线索要等十几秒）');
+    assertEquals(['type' => 'json_object'], $seen['response_format'] ?? null, 'JSON 模式随请求发出');
+    aiResetSettings();
+}
+
+/** 网关不认这些可选参数时：去掉重试一次，而不是把用户的请求弄挂 */
+function test_a_mimo_gateway_that_rejects_the_optional_params_still_answers(): void
+{
+    aiUseFakeTransport(['ai_provider' => 'mimo']);
+    $calls = [];
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use (&$calls) {
+        $calls[] = (array) $payload;
+        if (count($calls) === 1) {
+            return ['ok' => false, 'json' => [], 'error' => "Unsupported parameter: 'response_format'",
+                    'status' => 400, 'raw' => ''];
+        }
+        return ['ok' => true, 'json' => ['choices' => [['message' =>
+            ['content' => '{"reply":"回退后仍可用","actions":[]}']]]], 'error' => '', 'status' => 200, 'raw' => ''];
+    };
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']], AiClient::config());
+    assertTrue((bool) $res['ok'], '第二次请求成功，用户看不到失败');
+    assertEquals(2, count($calls), '只重试一次');
+    assertEquals(false, array_key_exists('response_format', $calls[1]), '重试时把可选参数整组去掉');
+    assertEquals(false, array_key_exists('thinking', $calls[1]), '思考开关也一起去掉');
+    assertContains('不接受', (string) ($res['notice'] ?? ''), '但仍然告知发生过回退');
+    assertContains('response_format', (string) ($res['notice'] ?? ''), '并说清是哪个参数');
+
+    // 快速模式与 JSON 模式是两回事：关掉思考开关不该把 JSON 模式一起关掉
+    aiUseFakeTransport(['ai_provider' => 'mimo', 'ai_fast_mode' => '0']);
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => 'hi']], AiClient::config());
+    assertEquals(false, array_key_exists('thinking', aiSeen()), '关掉快速模式后回到模型自己的思考');
+    assertEquals(['type' => 'json_object'], aiSeen()['response_format'] ?? null, 'JSON 模式照发');
+    aiResetSettings();
+}
+
+/** 拉模型列表同样不许空跑：缺 Key 就当场说清楚，而不是让对方回一个 401 再记进审计 */
+function test_listing_models_says_what_is_missing(): void
+{
+    $called = 0;
+    $spy = static function () use (&$called) {
+        $called++;
+        return ['ok' => true, 'json' => ['data' => [['id' => 'mimo-v2.5']]], 'error' => '', 'status' => 200, 'raw' => ''];
+    };
+
+    aiUseFakeTransport(['ai_provider' => 'mimo', 'ai_model' => '', 'ai_api_key' => '']);
+    AiClient::$transport = $spy;
+    $res = AiClient::listModels();
+    assertTrue(!($res['ok'] ?? true), '没有 Key 时不报告成功');
+    assertContains('缺少 API Key', (string) ($res['error'] ?? ''), '说的是差什么，不是一个远处的 401');
+    assertEquals(0, $called, '一个请求都没发出去');
+
+    // 本地 Ollama 这类不需要 Key 的端点照常可查
+    $called = 0;
+    aiUseFakeTransport(['ai_provider' => 'ollama', 'ai_model' => 'qwen2.5:7b', 'ai_api_key' => '']);
+    AiClient::$transport = $spy;
+    $local = AiClient::listModels();
+    assertTrue((bool) ($local['ok'] ?? false), 'Ollama 不需要 Key');
+    assertEquals(1, $called, '这一次真的去查了');
+    aiResetSettings();
+}
+
+function test_a_thinking_model_that_only_wrote_reasoning_is_not_reported_as_silent(): void
+{
+    aiUseFakeTransport(['ai_provider' => 'deepseek']);
+    AiClient::$transport = static fn() => ['ok' => true, 'json' => ['choices' => [['message' => [
+        'content' => '', 'reasoning_content' => '{\"reply\":\"从推理字段取回\",\"actions\":[]}',
+    ]]]], 'error' => '', 'status' => 200, 'raw' => ''];
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']], AiClient::config());
+    assertTrue($res['ok'] === true, 'reasoning_content 会被当作回复');
+    assertContains('推理字段', (string) $res['content']);
+
+    // truly empty, with fast mode off: point at the switch that fixes it
+    AiClient::$transport = static fn() => ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '']]]],
+        'error' => '', 'status' => 200, 'raw' => ''];
+    $cfg = AiClient::config();
+    $cfg['fast_mode'] = false;
+    $empty = AiClient::chat([['role' => 'user', 'content' => 'hi']], $cfg);
+    assertTrue($empty['ok'] === false);
+    assertContains('快速模式', (string) $empty['error'], '空内容时提示开快速模式');
+    aiResetSettings();
+}
+
+// ------------------------------------------------------------------- parsing
+
+function test_answers_are_parsed_even_when_the_model_is_chatty(): void
+{
+    $clean = '{"reply":"建好了","actions":[{"tool":"create_lead","args":{"title":"来自 JSON"},"reason":"测试"}]}';
+    $plan = Ai::parsePlan($clean);
+    assertTrue($plan['ok'], 'plain json parses');
+    assertEquals('create_lead', $plan['actions'][0]['tool']);
+
+    $fenced = Ai::parsePlan("好的：\n```json\n" . $clean . "\n```\n以上。");
+    assertTrue($fenced['ok'], '```json fences parse');
+
+    $prose = Ai::parsePlan('当然可以。' . $clean . ' 还需要我做什么吗？');
+    assertTrue($prose['ok'], 'json embedded in prose parses');
+
+    $bare = Ai::parsePlan('[{"tool":"create_lead","args":{"title":"裸数组"}}]');
+    assertTrue($bare['ok'] && count($bare['actions']) === 1, 'a bare array is tolerated');
+
+    assertTrue(Ai::parsePlan('抱歉，我做不到。')['ok'] === false, 'no json -> refused');
+    // "nothing to do, and here is why" is a legitimate answer; silence is not.
+    $noop = Ai::parsePlan('{"reply":"这些线索都还在跟进中，不需要改动。","actions":[]}');
+    assertTrue($noop['ok'], 'an empty plan with an explanation is accepted');
+    assertEquals([], $noop['actions']);
+    assertContains('不需要改动', $noop['reply']);
+    assertTrue(Ai::parsePlan('{"reply":"","actions":[]}')['ok'] === false, 'an empty answer with no reply is rejected');
+    assertTrue(Ai::parsePlan('{"actions":"oops"}')['ok'] === false, 'wrong type refused');
+    assertTrue(Ai::parsePlan('{"reply":"未闭合','actions":[{"tool":"x"}')['ok'] === false, 'truncated json refused');
+}
+
+function test_the_plan_is_stored_as_data_not_as_a_query(): void
+{
+    $actions = [['tool' => 'create_lead', 'args' => ['title' => '审计用线索'], 'reason' => '演示']];
+    $checked = Ai::validatePlan($actions, 1);
+    $id = (new Ai())->record(1, '帮我建条线索', $checked + ['status' => 'pending', 'reply' => '好'],
+        ['provider' => 'mock', 'model' => 'triphase-mock', 'latency_ms' => 3]);
+    assertTrue($id > 0, 'audit row written');
+
+    $row = (new Ai())->find($id);
+    assertEquals('pending', $row['status'], 'starts pending');
+    assertEquals(1, (int) $row['user_id'], 'attributed to the requester');
+    $plan = Ai::planOf($row);
+    assertEquals('create_lead', $plan['actions'][0]['tool'], 'plan round-trips through JSON');
+
+    // only the owner may pick it up for execution
+    assertTrue((new Ai())->pendingFor($id, 2) === false, "another user's pendingFor finds nothing");
+    $mine = (new Ai())->pendingFor($id, 1);
+    assertEquals($id, (int) $mine['id'], 'the owner finds it');
+
+    (new Ai())->finish($id, 'executed', [['tool' => 'create_lead', 'ok' => true, 'message' => '已新建线索 #7']], null);
+    $done = (new Ai())->find($id);
+    assertEquals('executed', $done['status'], 'status transitions');
+    assertTrue($done['executed_at'] !== null && $done['executed_at'] !== '', 'execution timestamped');
+    assertEquals('已新建线索 #7', Ai::resultsOf($done)[0]['message'], 'results round-trip');
+    assertTrue((new Ai())->pendingFor($id, 1) === false, 'an executed plan can no longer be applied');
+}
+
+// ------------------------------------------------------------------ transport
+
+function test_chat_reports_errors_instead_of_throwing_and_never_leaks_the_key(): void
+{
+    aiUseFakeTransport();
+    AiClient::$transport = static fn() => ['ok' => false, 'json' => [], 'status' => 0, 'raw' => '',
+        'error' => '连接失败，请求头 Authorization: Bearer sk-test-1234567890abcdef'];
+
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+    assertTrue($res['ok'] === false, 'error surfaced');
+    assertTrue(strpos($res['error'], 'sk-test-1234567890abcdef') === false, 'the raw key is redacted out of the message');
+    assertContains('sk-•', $res['error'], 'replaced with the masked form');
+    AiClient::$transport = null;
+}
+
+function test_chat_reads_the_openai_shape_and_records_latency(): void
+{
+    aiUseFakeTransport();
+    aiJsonTransport('{"reply":"ok","actions":[]}');
+    $res = AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+    assertTrue($res['ok'], 'chat succeeded');
+    assertEquals('{"reply":"ok","actions":[]}', $res['content']);
+    assertEquals('fake-1', $res['model'], 'the model that answered is reported');
+    AiClient::$transport = null;
+}
+
+function test_requests_go_to_the_configured_openai_compatible_endpoint(): void
+{
+    aiUseFakeTransport(['ai_base_url' => 'https://gateway.internal.example/v1']);
+    $seen = null;
+    AiClient::$transport = static function (string $url, ?array $payload, string $key, float $timeout) use (&$seen) {
+        $seen = ['url' => $url, 'payload' => $payload, 'key' => $key];
+        return ['ok' => true, 'json' => ['choices' => [['message' => ['content' => '{}']]]],
+                'error' => '', 'status' => 200, 'raw' => ''];
+    };
+    AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+    assertEquals('https://gateway.internal.example/v1/chat/completions', $seen['url'], 'base url + path');
+    assertEquals('gpt-4o-mini', $seen['payload']['model'], 'model forwarded');
+    assertEquals('sk-test-1234567890abcdef', $seen['key'], 'key sent as bearer');
+    AiClient::$transport = null;
+}
+
+function test_endpoints_are_restricted_to_https_except_localhost(): void
+{
+    $cases = [
+        ['http://api.example.com/v1', false, 'https'],
+        ['https://api.example.com/v1', true, ''],
+        ['http://127.0.0.1:11434/v1', true, ''],
+        ['http://localhost:11434/v1', true, ''],
+        ['ftp://api.example.com/v1', false, 'http'],
+        ['not a url', false, '不完整'],
+        // 存错了值时，错误里必须带着那个值：“接口地址不完整”本身不告诉你是哪里不完整
+        //（实测：“模型”下拉的候选项落到了“接口地址”框里，存成了 mimo-v2.5）
+        ['mimo-v2.5', false, 'mimo-v2.5'],
+        ['https://user:pass@api.example.com/v1', false, '用户名/密码'],
+    ];
+    /** The model answered; the URL shape is asserted in the endpoint tests. */
+    foreach ($cases as [$base, $shouldPass, $needle]) {
+        aiUseFakeTransport(['ai_base_url' => $base]);
+        $res = AiClient::chat([['role' => 'user', 'content' => 'hi']]);
+        if ($shouldPass) {
+            assertTrue(!isset($res['error']), "{$base} should be allowed (got: " . ($res['error'] ?? '') . ")");
+        } else {
+            assertTrue($res['ok'] === false, "{$base} must be rejected");
+            assertContains($needle, (string) $res['error'], "{$base} rejection explains itself");
+        }
+    }
+    AiClient::$transport = null;
+}
+
+function test_environment_overrides_win_over_the_stored_settings(): void
+{
+    aiUseFakeTransport(['ai_enabled' => '0', 'ai_provider' => 'openai', 'ai_api_key' => 'stored-key']);
+    putenv('AI_ENABLED=1');
+    putenv('AI_PROVIDER=ollama');
+    putenv('AI_MODEL=qwen2.5:14b');
+    putenv('AI_API_KEY=env-ke' . 'y-value');
+    $cfg = AiClient::config();
+    assertTrue($cfg['enabled'], 'env turns it on');
+    assertEquals('ollama', $cfg['provider'], 'env picks the provider');
+    assertEquals('qwen2.5:14b', $cfg['model'], 'env picks the model');
+    assertEquals('env-key-value', $cfg['api_key'], 'env supplies the key');
+    assertTrue($cfg['key_from_env'], 'and the UI is told so');
+    assertEquals('http://127.0.0.1:11434/v1', $cfg['base_url'], 'provider default base url');
+
+    putenv('AI_ENABLED'); putenv('AI_PROVIDER'); putenv('AI_MODEL'); putenv('AI_API_KEY');
+    $back = AiClient::config();
+    assertEquals('stored-key', $back['api_key'], 'falls back to the stored setting');
+    assertTrue($back['enabled'] === false, 'and back to the stored off switch');
+}
+
+function test_the_key_is_masked_and_never_rendered(): void
+{
+    aiUseFakeTransport(['ai_enabled' => '1']);
+    assertEquals('sk-••••••••••••cdef', AiClient::maskKey('sk-test-1234567890abcdef'), 'masked preview');
+    assertEquals('', AiClient::maskKey(''), 'nothing stored -> nothing shown');
+    assertEquals('•••••', AiClient::maskKey('short'), 'short values fully masked');
+
+    // values() keeps the real key for AiClient; publicValues() is what a form may use
+    assertEquals('sk-test-1234567890abcdef', Setting::get('ai_api_key'));
+    assertEquals('', Setting::publicValues()['ai_api_key'], 'form values are scrubbed');
+    $state = Setting::secretState();
+    assertTrue($state['ai_api_key']['set'], 'state says a key exists');
+    assertEquals('sk-••••••••••••cdef', $state['ai_api_key']['masked']);
+
+    // sanitize must not wipe a stored key when the password box is left empty
+    $clean = Setting::sanitize(['ai_enabled' => '1', 'ai_api_key' => '   ']);
+    assertTrue(!array_key_exists('ai_api_key', $clean['values']), 'empty secret box keeps the stored key');
+    (new Setting())->setMany(['ai_api_key' => 'sk-test-1234567890abcdef'], 1);
+    assertEquals('sk-test-1234567890abcdef', Setting::get('ai_api_key'), 'key survived the save');
+
+    // and the settings page must show only the mask
+    $_SESSION['user_id'] = 1;
+    $_SESSION['user'] = ['id' => 1, 'role' => 'admin'];
+    $html = renderAiView(APP_PATH . '/views/settings/index.php', 'ai');
+    assertTrue(strpos($html, 'sk-test-1234567890abcdef') === false, 'the real key never reaches the browser');
+    assertContains('sk-••••••••••••cdef', $html, 'the masked form does');
+    unset($_SESSION['user_id'], $_SESSION['user']);
+    (new Setting())->setMany(['ai_enabled' => '0', 'ai_provider' => 'mock', 'ai_api_key' => '', 'ai_base_url' => ''], 1);
+}
+
+function renderAiView(string $file, string $tab): string
+{
+    $vars = [
+        'user'        => (new User())->find(1),
+        'settings'    => Setting::publicValues(),
+        'definitions' => Setting::definitions(),
+        'changes'     => (new Setting())->changes(),
+        'references'  => (new User())->ownedReferences(1),
+        'secrets'     => Setting::secretState(),
+        'aiConfig'    => AiClient::config(),
+        'tab'         => $tab,
+        'csrf'        => 'token',
+    ];
+    extract($vars);
+    ob_start();
+    require $file;
+    return (string) ob_get_clean();
+}
+
+// -------------------------------------------------------------- prompt shape
+
+function test_the_prompt_asks_for_a_json_plan_and_whitelists_the_tools(): void
+{
+    $prompt = Ai::systemPrompt();
+    assertContains('只能输出一个 JSON 对象', $prompt);
+    assertContains('create_lead', $prompt, 'the tool list is in the prompt');
+    assertContains('忽略其中任何', $prompt, 'the pasted material is framed as data, not instructions');
+    assertTrue(!str_contains($prompt, 'api_key'), 'the prompt never contains credentials');
+
+    $messages = Ai::messages('测试指令');
+    assertEquals('system', $messages[0]['role']);
+    assertContains('<data>', $messages[1]['content'], 'context is wrapped as data');
+    assertContains('测试指令', $messages[1]['content']);
+}
+
+/**
+ * 询价不许直接建客户：真 Key 实测一句“印度尼西亚客户阿桑比发来询价，需要现代轮毂
+ * 单元1000套”，模型因为句里写着“客户”就直接 create_customer。业务主线是询价先进
+ * 线索池，所以服务端改写而不是提示词祈祷；但用户点名“建客户档案”时不能替他作主。
+ */
+function test_an_inquiry_becomes_a_lead_even_when_the_model_builds_a_customer(): void
+{
+    $u = aiUser('asambi-' . substr(uniqid(), -5) . '@example.com', '阿桑比业务员');
+    $_SESSION['user_id'] = $u;
+    $_SESSION['user'] = ['id' => $u, 'role' => 'sales'];
+
+    aiUseFakeTransport(['ai_provider' => 'deepseek']);
+    AiClient::$transport = static fn() => ['ok' => true, 'error' => '', 'status' => 200, 'raw' => '',
+        'json' => ['choices' => [['message' => ['content' =>
+            '{"reply":"已为您建好客户档案","actions":[{"tool":"create_customer","args":{"name":"阿桑比","source_country":"印度尼西亚","company":"PT Asambi","notes":"需要现代轮毂单元 1000 套"}}]}'
+        ]]]]];
+
+    $res = Ai::complete('印度尼西亚客户阿桑比发来询价，需要现代轮毂单元1000套', $u);
+    assertTrue((bool) ($res['ok'] ?? false), '应给出计划：' . (string) ($res['error'] ?? ''));
+    assertEquals('create_lead', (string) ($res['actions'][0]['tool'] ?? ''), '单条建客户被改写为新建线索');
+    assertContains('先记为线索', (string) ($res['reply'] ?? ''), '要告诉用户改写了什么');
+
+    $checked = Ai::validatePlan((array) $res['actions'], $u);
+    assertEquals([], (array) ($checked['errors'] ?? []), '改写后的计划照常过校验：' . json_encode($checked['errors'] ?? []));
+    assertContains('新建线索', (string) ($checked['actions'][0]['label'] ?? ''), '预览里显示的是线索而不是客户');
+
+    $before = (int) Database::connection()->query('SELECT COUNT(*) FROM customers')->fetchColumn();
+    $run = Ai::execute($checked['actions'], $u);
+    assertEquals(1, (int) ($run['applied'] ?? 0), '线索落库');
+    $after = (int) Database::connection()->query('SELECT COUNT(*) FROM customers')->fetchColumn();
+    assertEquals($before, $after, '客户表没被动过');
+
+    // 用户点名建档时绝不替他改主意
+    $keep = Ai::routeInquiryToLead([['tool' => 'create_customer', 'args' => ['name' => '阿桑比']]],
+        '给印度尼西亚的阿桑比建客户档案');
+    assertEquals('create_customer', (string) $keep[0][0]['tool'], '点名建档不改写');
+
+    // 提示词与服务器同一个口径
+    assertContains('一律先 create_lead', Ai::systemPrompt(), '规则1b 要写进提示词');
+
+    aiResetSettings();
+}
+
+runCase();

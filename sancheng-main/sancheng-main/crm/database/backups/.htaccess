@@ -1,0 +1,13 @@
+# 叁程 CRM (Triphase CRM)
+# Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
+
+# 备份包里是整库明文与全部附件。正常情况下 docroot 指向 public/，本目录不可达；
+# 万一有人把站点根指到项目根（根 .htaccess 会 rewrite 到 public/，但静态文件仍可能被直取），
+# 这里拒绝一切对备份内容的读取。
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order Deny,Allow
+    Deny from all
+</IfModule>
