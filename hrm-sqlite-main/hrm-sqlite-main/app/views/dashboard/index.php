@@ -39,28 +39,40 @@
 
 <?php if (in_array($_SESSION['user_role'] ?? '', ['admin', 'hr'])): ?>
 <div class="row g-3 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card p-3 d-flex flex-row align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-3">
-                <div class="icon bg-primary text-white rounded-3 p-2 px-3 fs-4"><i class="bi bi-person-plus"></i></div>
+                <div class="icon bg-primary text-white rounded-3 p-2 px-3 fs-4"><i class="bi bi-briefcase"></i></div>
                 <div>
-                    <div class="fw-semibold">Onboarding Workflows</div>
-                    <div class="text-muted small">Track new hire checklists and orientation progress</div>
+                    <div class="fw-semibold">Recruitment & ATS</div>
+                    <div class="text-muted small"><?php echo (int)($openJobs ?? 0); ?> Open Jobs · <?php echo (int)($activeCandidates ?? 0); ?> Active</div>
                 </div>
             </div>
-            <a href="<?php echo BASE_URL; ?>/onboarding" class="btn btn-sm btn-outline-primary">Go to Onboarding</a>
+            <a href="<?php echo BASE_URL; ?>/recruitment/ats" class="btn btn-sm btn-outline-primary">Pipeline</a>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
+        <div class="card p-3 d-flex flex-row align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+                <div class="icon bg-success text-white rounded-3 p-2 px-3 fs-4"><i class="bi bi-person-plus"></i></div>
+                <div>
+                    <div class="fw-semibold">Onboarding</div>
+                    <div class="text-muted small">Checklists & orientations</div>
+                </div>
+            </div>
+            <a href="<?php echo BASE_URL; ?>/onboarding" class="btn btn-sm btn-outline-success">Onboarding</a>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card p-3 d-flex flex-row align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-3">
                 <div class="icon bg-warning text-dark rounded-3 p-2 px-3 fs-4"><i class="bi bi-box-arrow-right"></i></div>
                 <div>
-                    <div class="fw-semibold">Offboarding & Archives</div>
-                    <div class="text-muted small">Manage exit clearance and view offboarded employees</div>
+                    <div class="fw-semibold">Offboarding</div>
+                    <div class="text-muted small">Exit clearance & archives</div>
                 </div>
             </div>
-            <a href="<?php echo BASE_URL; ?>/offboarding" class="btn btn-sm btn-outline-warning">Go to Offboarding</a>
+            <a href="<?php echo BASE_URL; ?>/offboarding" class="btn btn-sm btn-outline-warning">Offboarding</a>
         </div>
     </div>
 </div>

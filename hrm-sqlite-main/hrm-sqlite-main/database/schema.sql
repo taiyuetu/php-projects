@@ -149,6 +149,55 @@ CREATE TABLE IF NOT EXISTS offboarding_employees (
     FOREIGN KEY (offboarded_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS job_openings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    department_id INTEGER,
+    employment_type TEXT NOT NULL DEFAULT 'Full-Time' CHECK (employment_type IN ('Full-Time', 'Part-Time', 'Contract', 'Internship', 'Remote')),
+    openings_count INTEGER NOT NULL DEFAULT 1,
+    location TEXT DEFAULT 'Singapore',
+    salary_range TEXT,
+    description TEXT,
+    requirements TEXT,
+    status TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open', 'Paused', 'Closed')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS candidates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    resume_url TEXT,
+    linkedin_url TEXT,
+    experience_years NUMERIC DEFAULT 0,
+    current_company TEXT,
+    stage TEXT NOT NULL DEFAULT 'Applied' CHECK (stage IN ('Applied', 'Screening', 'Interview', 'Offered', 'Hired', 'Rejected')),
+    rating INTEGER DEFAULT 0 CHECK (rating BETWEEN 0 AND 5),
+    notes TEXT,
+    applied_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    hired_employee_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES job_openings(id) ON DELETE CASCADE,
+    FOREIGN KEY (hired_employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS candidate_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id INTEGER NOT NULL,
+    user_id INTEGER,
+    stage TEXT NOT NULL,
+    note TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 INSERT INTO departments (name, description) VALUES
 ('Human Resources', 'Handles recruitment, onboarding and staff welfare'),
 ('Engineering', 'Product development and technical operations'),
@@ -165,3 +214,19 @@ INSERT INTO users (employee_id, username, password, role) VALUES
 (NULL, 'admin', '$2y$10$lwm6xguPOh1MYRJROx/obOFVE.BaMdsVbvXh.M9ttiyoTYvf1LLvu', 'admin'),
 (1, 'alice.tan', '$2y$10$lwm6xguPOh1MYRJROx/obOFVE.BaMdsVbvXh.M9ttiyoTYvf1LLvu', 'hr'),
 (2, 'brandon.lee', '$2y$10$lwm6xguPOh1MYRJROx/obOFVE.BaMdsVbvXh.M9ttiyoTYvf1LLvu', 'employee');
+
+INSERT INTO job_openings (id, title, department_id, employment_type, openings_count, location, salary_range, description, requirements, status) VALUES
+(1, 'Senior Full Stack Developer', 2, 'Full-Time', 2, 'Singapore (Hybrid)', '$7,000 - $9,500', 'Lead the development of scalable web platforms, APIs, and enterprise cloud solutions.', '5+ years experience with PHP/Laravel, modern JavaScript (Vue/React), SQLite/MySQL, and Docker.', 'Open'),
+(2, 'Talent Acquisition Specialist', 1, 'Full-Time', 1, 'Singapore', '$4,500 - $6,000', 'Oversee end-to-end recruitment lifecycle and candidate experience across APAC.', '3+ years HR & recruitment experience in tech or corporate staffing.', 'Open'),
+(3, 'Financial Analyst', 3, 'Full-Time', 1, 'Singapore', '$5,000 - $7,000', 'Conduct corporate financial modeling, budget forecasting, and monthly reconciliations.', 'Degree in Finance/Accountancy, CPA or CFA preferred, advanced Excel skills.', 'Open');
+
+INSERT INTO candidates (id, job_id, first_name, last_name, email, phone, resume_url, linkedin_url, experience_years, current_company, stage, rating, notes, applied_date) VALUES
+(1, 1, 'Lucas', 'Vance', 'lucas.vance@example.com', '+65 9123 7788', 'https://example.com/resumes/lucas-vance.pdf', 'https://linkedin.com/in/lucasvance', 6, 'CloudMatrix Pte Ltd', 'Interview', 4, 'Strong architectural fundamentals, passed technical coding challenge with flying colors.', '2026-09-10 09:30:00'),
+(2, 1, 'Seraphina', 'Lin', 'seraphina.lin@example.com', '+65 9234 5566', 'https://example.com/resumes/seraphina-lin.pdf', 'https://linkedin.com/in/seraphinalin', 4.5, 'Nexus Systems', 'Screening', 3, 'Good backend background, screening call scheduled for Thursday.', '2026-09-12 14:15:00'),
+(3, 2, 'Marcus', 'Goh', 'marcus.goh@example.com', '+65 8345 6677', 'https://example.com/resumes/marcus-goh.pdf', 'https://linkedin.com/in/marcusgoh', 5, 'TalentBridge APAC', 'Offered', 5, 'Outstanding recruitment track record, offer letter prepared.', '2026-09-08 11:00:00');
+
+INSERT INTO candidate_notes (candidate_id, user_id, stage, note, created_at) VALUES
+(1, 1, 'Applied', 'Candidate applied via career portal.', '2026-09-10 09:30:00'),
+(1, 1, 'Interview', 'Completed technical round with Engineering Lead. Recommended for cultural fit round.', '2026-09-12 16:00:00'),
+(3, 1, 'Applied', 'Profile received via referral.', '2026-09-08 11:00:00'),
+(3, 1, 'Offered', 'Offer approved by management ($5,800/mo). Awaiting candidate acceptance.', '2026-09-14 15:30:00');

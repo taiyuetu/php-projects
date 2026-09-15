@@ -23,13 +23,18 @@ if (!function_exists('navActive')) {
         </li>
         <?php if (in_array($role, ['admin', 'hr'])): ?>
         <li>
-            <a href="<?php echo BASE_URL; ?>/employee" class="nav-link text-white <?php echo navActive('employee', $currentController); ?>">
-                <i class="bi bi-person-badge me-2"></i> Employees
+            <a href="<?php echo BASE_URL; ?>/recruitment" class="nav-link text-white <?php echo navActive('recruitment', $currentController); ?>">
+                <i class="bi bi-briefcase me-2"></i> Recruitment (ATS)
             </a>
         </li>
         <li>
             <a href="<?php echo BASE_URL; ?>/onboarding" class="nav-link text-white <?php echo navActive('onboarding', $currentController); ?>">
                 <i class="bi bi-person-plus me-2"></i> Onboarding
+            </a>
+        </li>
+        <li>
+            <a href="<?php echo BASE_URL; ?>/employee" class="nav-link text-white <?php echo navActive('employee', $currentController); ?>">
+                <i class="bi bi-person-badge me-2"></i> Employees
             </a>
         </li>
         <li>

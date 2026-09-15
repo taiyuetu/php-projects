@@ -13,25 +13,35 @@
 
             <form method="POST" action="<?php echo BASE_URL; ?>/onboarding/create">
                 <input type="hidden" name="_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(32))); ?>">
+                <?php if (!empty($candidate)): ?>
+                    <input type="hidden" name="candidate_id" value="<?php echo (int) $candidate['id']; ?>">
+                    <div class="alert alert-success d-flex align-items-center gap-2 mb-4">
+                        <i class="bi bi-person-check fs-4"></i>
+                        <div>
+                            <strong>Converting Candidate from ATS:</strong> <?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?>
+                            <span class="text-muted">(Applied for: <?php echo htmlspecialchars($candidate['job_title']); ?>)</span>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <!-- 1. Personal Information -->
                 <h6 class="fw-bold text-uppercase text-secondary small border-bottom pb-2 mb-3">1. Personal Information</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
-                        <input type="text" name="first_name" class="form-control" placeholder="e.g. John" required>
+                        <input type="text" name="first_name" class="form-control" value="<?php echo htmlspecialchars($candidate['first_name'] ?? ''); ?>" placeholder="e.g. John" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
-                        <input type="text" name="last_name" class="form-control" placeholder="e.g. Doe" required>
+                        <input type="text" name="last_name" class="form-control" value="<?php echo htmlspecialchars($candidate['last_name'] ?? ''); ?>" placeholder="e.g. Doe" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
-                        <input type="email" name="email" class="form-control" placeholder="e.g. john.doe@example.com" required>
+                        <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($candidate['email'] ?? ''); ?>" placeholder="e.g. john.doe@example.com" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Phone Number</label>
-                        <input type="tel" name="phone" class="form-control" placeholder="e.g. +65 9123 4567">
+                        <input type="tel" name="phone" class="form-control" value="<?php echo htmlspecialchars($candidate['phone'] ?? ''); ?>" placeholder="e.g. +65 9123 4567">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Gender</label>
@@ -65,13 +75,15 @@
                         <select name="department_id" class="form-select">
                             <option value="">-- Unassigned --</option>
                             <?php foreach ($departments as $d): ?>
-                                <option value="<?php echo $d['id']; ?>"><?php echo htmlspecialchars($d['name']); ?></option>
+                                <option value="<?php echo $d['id']; ?>" <?php echo (isset($candidate['department_id']) && $candidate['department_id'] == $d['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($d['name']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Designation / Title</label>
-                        <input type="text" name="designation" class="form-control" placeholder="e.g. UX Designer">
+                        <input type="text" name="designation" class="form-control" value="<?php echo htmlspecialchars($candidate['job_title'] ?? ''); ?>" placeholder="e.g. UX Designer">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Monthly Salary</label>

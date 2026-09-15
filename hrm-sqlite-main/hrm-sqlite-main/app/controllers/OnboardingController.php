@@ -102,15 +102,36 @@ class OnboardingController extends Controller
                 $notes
             );
 
+            // 3. If converted from ATS candidate, mark candidate as Hired and record note
+            $candidateId = (int) $this->input('candidate_id');
+            if ($candidateId) {
+                $candidateModel = $this->model('Candidate');
+                $candidateModel->markHired($candidateId, $employeeId);
+                $noteModel = $this->model('CandidateNote');
+                $noteModel->addNote(
+                    $candidateId,
+                    $_SESSION['user_id'] ?? null,
+                    'Hired',
+                    "Candidate officially hired as {$designation} (Employee Code: {$code}). Successfully transitioned into Onboarding."
+                );
+            }
+
             $this->setFlash('success', "New employee {$firstName} {$lastName} ({$code}) created and onboarding workflow launched!");
             $this->redirect('onboarding/tasks/' . $onboardingId);
             return;
+        }
+
+        $candidate = null;
+        $candidateId = (int) $this->input('candidate_id');
+        if ($candidateId) {
+            $candidate = $this->model('Candidate')->findWithJob($candidateId);
         }
 
         $this->render('onboarding/create', [
             'pageTitle'     => 'Onboard New Employee',
             'departments'   => $this->departmentModel->all('name ASC'),
             'suggestedCode' => $this->employeeModel->generateEmployeeCode(),
+            'candidate'     => $candidate,
         ]);
     }
 

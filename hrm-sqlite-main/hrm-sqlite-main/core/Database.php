@@ -110,6 +110,60 @@ class Database
                 );
             ");
         }
+
+        $hasRecruitment = $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'candidates'")->fetchColumn();
+        if (!$hasRecruitment) {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS job_openings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    department_id INTEGER,
+                    employment_type TEXT NOT NULL DEFAULT 'Full-Time' CHECK (employment_type IN ('Full-Time', 'Part-Time', 'Contract', 'Internship', 'Remote')),
+                    openings_count INTEGER NOT NULL DEFAULT 1,
+                    location TEXT DEFAULT 'Singapore',
+                    salary_range TEXT,
+                    description TEXT,
+                    requirements TEXT,
+                    status TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open', 'Paused', 'Closed')),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS candidates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id INTEGER NOT NULL,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    phone TEXT,
+                    resume_url TEXT,
+                    linkedin_url TEXT,
+                    experience_years NUMERIC DEFAULT 0,
+                    current_company TEXT,
+                    stage TEXT NOT NULL DEFAULT 'Applied' CHECK (stage IN ('Applied', 'Screening', 'Interview', 'Offered', 'Hired', 'Rejected')),
+                    rating INTEGER DEFAULT 0 CHECK (rating BETWEEN 0 AND 5),
+                    notes TEXT,
+                    applied_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    hired_employee_id INTEGER,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (job_id) REFERENCES job_openings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (hired_employee_id) REFERENCES employees(id) ON DELETE SET NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS candidate_notes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    candidate_id INTEGER NOT NULL,
+                    user_id INTEGER,
+                    stage TEXT NOT NULL,
+                    note TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                );
+            ");
+        }
     }
 
     // Prevent cloning / unserialization of the instance
