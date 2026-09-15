@@ -1,11 +1,8 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <form method="GET" action="<?php echo BASE_URL; ?>/employee" class="d-flex gap-2">
         <input type="text" name="q" value="<?php echo htmlspecialchars($keyword ?? ''); ?>" class="form-control" placeholder="Search by name, email or code..." style="width: 280px;">
-        <button class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+        <button class="btn btn-outline-secondary"><i class="bi bi-search"></i> Search</button>
     </form>
-    <a href="<?php echo BASE_URL; ?>/employee/create" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Add Employee
-    </a>
 </div>
 
 <div class="card p-3">
@@ -33,15 +30,19 @@
                         <td><?php echo htmlspecialchars($e['designation'] ?? '—'); ?></td>
                         <td><span class="badge badge-status-<?php echo $e['status']; ?>"><?php echo $e['status']; ?></span></td>
                         <td class="text-end">
-                            <a href="<?php echo BASE_URL; ?>/employee/edit/<?php echo $e['id']; ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                            <form method="POST" action="<?php echo BASE_URL; ?>/employee/delete/<?php echo $e['id']; ?>" class="d-inline" onsubmit="return confirm('Delete this employee? This cannot be undone.');">
-                                <input type="hidden" name="_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(32))); ?>">
-                                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                            </form>
+                            <a href="<?php echo BASE_URL; ?>/employee/edit/<?php echo $e['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit Employee"><i class="bi bi-pencil"></i></a>
+                            <?php if ($e['status'] === 'Terminated'): ?>
+                                <span class="badge bg-secondary ms-1">Offboarded</span>
+                            <?php else: ?>
+                                <a href="<?php echo BASE_URL; ?>/offboarding/initiate/<?php echo $e['id']; ?>" class="btn btn-sm btn-outline-warning ms-1" title="Offboard Employee">
+                                    <i class="bi bi-box-arrow-right"></i> Offboard
+                                </a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
             </tbody>
         </table>
     </div>
+    <?php require __DIR__ . '/../partials/pagination.php'; ?>
 </div>

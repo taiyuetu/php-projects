@@ -8,7 +8,12 @@ class LeaveController extends Controller
         $model = new LeaveRequest();
         $rows = $_SESSION['user_role'] === 'employee' && $_SESSION['employee_id']
             ? $model->forEmployee((int) $_SESSION['employee_id']) : $model->allWithEmployee();
-        $this->render('leave/index', ['pageTitle' => 'Leave Requests', 'leaves' => $rows]);
+        $paginated = $this->paginate($rows, 10);
+        $this->render('leave/index', [
+            'pageTitle'  => 'Leave Requests',
+            'leaves'     => $paginated['items'],
+            'pagination' => $paginated,
+        ]);
     }
 
     public function create()

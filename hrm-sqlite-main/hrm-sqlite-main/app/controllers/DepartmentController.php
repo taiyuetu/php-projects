@@ -11,9 +11,13 @@ class DepartmentController extends Controller
 
     public function index()
     {
+        $all = $this->departments->allWithEmployeeCount();
+        $paginated = $this->paginate($all, 10);
+
         $this->render('departments/index', [
-            'pageTitle' => 'Departments',
-            'departments' => $this->departments->allWithEmployeeCount(),
+            'pageTitle'   => 'Departments',
+            'departments' => $paginated['items'],
+            'pagination'  => $paginated,
         ]);
     }
 

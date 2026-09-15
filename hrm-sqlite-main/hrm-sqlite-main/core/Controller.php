@@ -110,4 +110,37 @@ class Controller
             exit('Page expired. Please try again.');
         }
     }
+
+    /**
+     * Slice an array of records and return pagination metadata and paginated items.
+     */
+    protected function paginate(array $items, int $perPage = 10, string $pageParam = 'page'): array
+    {
+        $totalItems = count($items);
+        $totalPages = max(1, (int) ceil($totalItems / $perPage));
+        $currentPage = max(1, (int) $this->input($pageParam, 1));
+        if ($currentPage > $totalPages && $totalPages > 0) {
+            $currentPage = $totalPages;
+        }
+
+        $offset = ($currentPage - 1) * $perPage;
+        $slicedItems = array_slice($items, $offset, $perPage);
+        $from = $totalItems === 0 ? 0 : $offset + 1;
+        $to = min($offset + $perPage, $totalItems);
+
+        return [
+            'items'        => $slicedItems,
+            'current_page' => $currentPage,
+            'per_page'     => $perPage,
+            'total_items'  => $totalItems,
+            'total_pages'  => $totalPages,
+            'has_prev'     => $currentPage > 1,
+            'has_next'     => $currentPage < $totalPages,
+            'prev_page'    => $currentPage - 1,
+            'next_page'    => $currentPage + 1,
+            'from'         => $from,
+            'to'           => $to,
+            'page_param'   => $pageParam,
+        ];
+    }
 }

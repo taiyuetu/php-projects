@@ -5,7 +5,13 @@ class PayrollController extends Controller
 
     public function index()
     {
-        $this->render('payroll/index', ['pageTitle' => 'Payroll', 'payroll' => (new Payroll())->allWithEmployee()]);
+        $all = (new Payroll())->allWithEmployee();
+        $paginated = $this->paginate($all, 10);
+        $this->render('payroll/index', [
+            'pageTitle'  => 'Payroll',
+            'payroll'    => $paginated['items'],
+            'pagination' => $paginated,
+        ]);
     }
 
     public function generate()

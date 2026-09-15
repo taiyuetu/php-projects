@@ -15,11 +15,13 @@ class EmployeeController extends Controller
     {
         $keyword = $this->input('q');
         $employees = $keyword ? $this->employeeModel->search($keyword) : $this->employeeModel->allWithDepartment();
+        $paginated = $this->paginate($employees, 10);
 
         $this->render('employees/index', [
-            'pageTitle' => 'Employees',
-            'employees' => $employees,
-            'keyword'   => $keyword,
+            'pageTitle'  => 'Employees',
+            'employees'  => $paginated['items'],
+            'pagination' => $paginated,
+            'keyword'    => $keyword,
         ]);
     }
 
@@ -44,17 +46,9 @@ class EmployeeController extends Controller
 
     public function create()
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->save();
-            return;
-        }
-
-        $this->render('employees/form', [
-            'pageTitle'   => 'Add Employee',
-            'departments' => $this->departmentModel->all('name ASC'),
-            'employee'    => null,
-            'code'        => $this->employeeModel->generateEmployeeCode(),
-        ]);
+        // New employees are registered and onboarded via the Onboarding workflow
+        $this->setFlash('info', 'New employees are registered through the Onboarding workflow.');
+        $this->redirect('onboarding/create');
     }
 
     public function edit($id)
@@ -106,8 +100,14 @@ class EmployeeController extends Controller
             $this->setFlash('success', 'Employee updated successfully.');
         } else {
             $data['employee_code'] = $this->employeeModel->generateEmployeeCode();
-            $id = $this->employeeModel->insert($data);
-            $this->setFlash('success', 'Employee added successfully.');
+            $id = (int) $this->employeeModel->insert($data);
+            
+            // Automatically initialize onboarding checklist for the new hire
+            $onboardingModel = $this->model('Onboarding');
+            $startDate = $data['hire_date'] ?: date('Y-m-d');
+            $onboardingModel->createForEmployee($id, $startDate, null, 'New employee onboarding');
+
+            $this->setFlash('success', 'Employee added successfully and onboarding checklist created.');
         }
 
         $this->redirect('employee');
@@ -115,12 +115,8 @@ class EmployeeController extends Controller
 
     public function delete($id)
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('employee');
-        }
-        $this->verifyCsrf();
-        $this->employeeModel->delete($id);
-        $this->setFlash('success', 'Employee removed.');
-        $this->redirect('employee');
+        // Deletion is replaced by offboarding
+        $this->setFlash('info', 'Employee deletion is disabled. Please use the Offboarding process.');
+        $this->redirect('offboarding/initiate/' . (int) $id);
     }
 }

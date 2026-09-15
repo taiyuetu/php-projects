@@ -10,7 +10,13 @@ class AttendanceController extends Controller
         $rows = $_SESSION['user_role'] === 'employee' && $_SESSION['employee_id']
             ? array_values(array_filter($model->allWithEmployee($date), fn($row) => (int) $row['employee_id'] === (int) $_SESSION['employee_id']))
             : $model->allWithEmployee($date);
-        $this->render('attendance/index', ['pageTitle' => 'Attendance', 'date' => $date, 'attendance' => $rows]);
+        $paginated = $this->paginate($rows, 10);
+        $this->render('attendance/index', [
+            'pageTitle'  => 'Attendance',
+            'date'       => $date,
+            'attendance' => $paginated['items'],
+            'pagination' => $paginated,
+        ]);
     }
 
     public function checkIn()

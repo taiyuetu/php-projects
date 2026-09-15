@@ -3,8 +3,10 @@ $currentUrl = trim($_GET['url'] ?? 'dashboard', '/');
 $currentController = strtolower(explode('/', $currentUrl)[0] ?: 'dashboard');
 $role = $_SESSION['user_role'] ?? 'employee';
 
-function navActive($section, $currentController) {
-    return $section === $currentController ? 'active' : '';
+if (!function_exists('navActive')) {
+    function navActive($section, $currentController) {
+        return $section === $currentController ? 'active' : '';
+    }
 }
 ?>
 <nav id="sidebar" class="d-flex flex-column flex-shrink-0 p-3 text-white">
@@ -23,6 +25,16 @@ function navActive($section, $currentController) {
         <li>
             <a href="<?php echo BASE_URL; ?>/employee" class="nav-link text-white <?php echo navActive('employee', $currentController); ?>">
                 <i class="bi bi-person-badge me-2"></i> Employees
+            </a>
+        </li>
+        <li>
+            <a href="<?php echo BASE_URL; ?>/onboarding" class="nav-link text-white <?php echo navActive('onboarding', $currentController); ?>">
+                <i class="bi bi-person-plus me-2"></i> Onboarding
+            </a>
+        </li>
+        <li>
+            <a href="<?php echo BASE_URL; ?>/offboarding" class="nav-link text-white <?php echo navActive('offboarding', $currentController); ?>">
+                <i class="bi bi-box-arrow-right me-2"></i> Offboarding
             </a>
         </li>
         <li>
