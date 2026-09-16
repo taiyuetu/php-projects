@@ -22,7 +22,7 @@ class RecruitmentController extends Controller
         $paginated = $this->paginate($jobs, 10);
 
         $this->render('recruitment/index', [
-            'pageTitle'     => 'Recruitment - Job Openings',
+            'pageTitle'     => '招聘管理 - 职位列表',
             'jobs'          => $paginated['items'],
             'pagination'    => $paginated,
             'statusFilter'  => $statusFilter,
@@ -37,7 +37,7 @@ class RecruitmentController extends Controller
             $this->verifyCsrf();
             $title = trim((string) $this->input('title'));
             if ($title === '') {
-                $this->setFlash('error', 'Job title is required.');
+                $this->setFlash('error', '职位名称必填。');
                 $this->redirect('recruitment/createJob');
                 return;
             }
@@ -54,13 +54,13 @@ class RecruitmentController extends Controller
                 'status'          => $this->input('status', 'Open'),
             ]);
 
-            $this->setFlash('success', "Job opening '{$title}' posted successfully.");
+            $this->setFlash('success', "招聘职位 '{$title}' 发布成功。");
             $this->redirect('recruitment');
             return;
         }
 
         $this->render('recruitment/job_form', [
-            'pageTitle'   => 'Post New Job Opening',
+            'pageTitle'   => '发布新职位',
             'job'         => null,
             'departments' => $this->departmentModel->all('name ASC'),
         ]);
@@ -70,7 +70,7 @@ class RecruitmentController extends Controller
     {
         $job = $this->jobModel->find((int) $id);
         if (!$job) {
-            $this->setFlash('error', 'Job opening not found.');
+            $this->setFlash('error', '未找到该招聘职位。');
             $this->redirect('recruitment');
         }
 
@@ -78,7 +78,7 @@ class RecruitmentController extends Controller
             $this->verifyCsrf();
             $title = trim((string) $this->input('title'));
             if ($title === '') {
-                $this->setFlash('error', 'Job title is required.');
+                $this->setFlash('error', '职位名称必填。');
                 $this->redirect('recruitment/editJob/' . (int) $id);
                 return;
             }
@@ -96,13 +96,13 @@ class RecruitmentController extends Controller
                 'updated_at'      => date('Y-m-d H:i:s'),
             ]);
 
-            $this->setFlash('success', "Job opening '{$title}' updated successfully.");
+            $this->setFlash('success', "招聘职位 '{$title}' 更新成功。");
             $this->redirect('recruitment');
             return;
         }
 
         $this->render('recruitment/job_form', [
-            'pageTitle'   => 'Edit Job Opening - ' . $job['title'],
+            'pageTitle'   => '编辑招聘职位 - ' . $job['title'],
             'job'         => $job,
             'departments' => $this->departmentModel->all('name ASC'),
         ]);
@@ -115,7 +115,7 @@ class RecruitmentController extends Controller
         }
         $this->verifyCsrf();
         $this->jobModel->update((int) $id, ['status' => 'Closed', 'updated_at' => date('Y-m-d H:i:s')]);
-        $this->setFlash('success', 'Job opening marked as Closed.');
+        $this->setFlash('success', '招聘职位已标记为已关闭。');
         $this->redirect('recruitment');
     }
 
@@ -141,7 +141,7 @@ class RecruitmentController extends Controller
         $stageCounts = $this->candidateModel->countByStage($selectedJobId ?: null);
 
         $this->render('recruitment/ats', [
-            'pageTitle'     => 'Applicant Tracking System (ATS)',
+            'pageTitle'     => '招聘看板 (ATS)',
             'candidates'    => $paginated['items'],
             'pagination'    => $paginated,
             'jobs'          => $this->jobModel->all('title ASC'),
@@ -172,13 +172,13 @@ class RecruitmentController extends Controller
             $notes = trim((string) $this->input('notes'));
 
             if (!$jobId) {
-                $this->setFlash('error', 'Please select a job vacancy.');
+                $this->setFlash('error', '请选择招聘职位。');
                 $this->redirect('recruitment/addCandidate');
                 return;
             }
 
             if ($firstName === '' || $lastName === '' || $email === '') {
-                $this->setFlash('error', 'First name, last name, and email are required.');
+                $this->setFlash('error', '名字、姓氏和邮箱必填。');
                 $this->redirect('recruitment/addCandidate?job_id=' . $jobId);
                 return;
             }
@@ -203,13 +203,13 @@ class RecruitmentController extends Controller
                 $this->noteModel->addNote($candidateId, $_SESSION['user_id'] ?? null, $stage, $notes);
             }
 
-            $this->setFlash('success', "Candidate {$firstName} {$lastName} added to ATS pipeline.");
+            $this->setFlash('success', "候选人 {$firstName} {$lastName} 已成功添加到 ATS 招聘流程。");
             $this->redirect('recruitment/candidate/' . $candidateId);
             return;
         }
 
         $this->render('recruitment/candidate_form', [
-            'pageTitle'       => 'Add Candidate to ATS',
+            'pageTitle'       => '添加候选人',
             'jobs'            => $this->jobModel->openJobs(),
             'selectedJobId'   => (int) $this->input('job_id', 0),
             'stages'          => Candidate::$stages,
@@ -220,14 +220,14 @@ class RecruitmentController extends Controller
     {
         $candidate = $this->candidateModel->findWithJob((int) $id);
         if (!$candidate) {
-            $this->setFlash('error', 'Candidate not found.');
+            $this->setFlash('error', '未找到该候选人。');
             $this->redirect('recruitment/ats');
         }
 
         $notes = $this->noteModel->forCandidate((int) $id);
 
         $this->render('recruitment/candidate_view', [
-            'pageTitle' => 'Candidate Profile - ' . $candidate['first_name'] . ' ' . $candidate['last_name'],
+            'pageTitle' => '候选人详情 - ' . $candidate['first_name'] . ' ' . $candidate['last_name'],
             'candidate' => $candidate,
             'notes'     => $notes,
             'stages'    => Candidate::$stages,
@@ -243,7 +243,7 @@ class RecruitmentController extends Controller
 
         $stage = $this->input('stage');
         if (!array_key_exists($stage, Candidate::$stages)) {
-            $this->setFlash('error', 'Invalid stage selected.');
+            $this->setFlash('error', '选择的阶段无效。');
             $this->redirect('recruitment/candidate/' . (int) $id);
             return;
         }
@@ -254,7 +254,7 @@ class RecruitmentController extends Controller
         $username = $_SESSION['username'] ?? 'HR';
         $this->noteModel->addNote((int) $id, $_SESSION['user_id'] ?? null, $stage, "Hiring stage advanced to {$stage} by {$username}.");
 
-        $this->setFlash('success', "Candidate stage updated to '{$stage}'.");
+        $this->setFlash('success', "候选人招聘阶段已更新。");
         $this->redirect('recruitment/candidate/' . (int) $id);
     }
 
@@ -268,7 +268,7 @@ class RecruitmentController extends Controller
         $rating = max(0, min(5, (int) $this->input('rating', 0)));
         $this->candidateModel->updateRating((int) $id, $rating);
 
-        $this->setFlash('success', "Candidate rating updated to {$rating} star(s).");
+        $this->setFlash('success', "候选人评分已更新为 {$rating} 星。");
         $this->redirect('recruitment/candidate/' . (int) $id);
     }
 
@@ -281,14 +281,14 @@ class RecruitmentController extends Controller
 
         $candidate = $this->candidateModel->find((int) $id);
         if (!$candidate) {
-            $this->setFlash('error', 'Candidate not found.');
+            $this->setFlash('error', '未找到该候选人。');
             $this->redirect('recruitment/ats');
         }
 
         $note = trim((string) $this->input('note'));
         if ($note !== '') {
             $this->noteModel->addNote((int) $id, $_SESSION['user_id'] ?? null, $candidate['stage'], $note);
-            $this->setFlash('success', 'Evaluation note recorded.');
+            $this->setFlash('success', '评估备注已添加。');
         }
 
         $this->redirect('recruitment/candidate/' . (int) $id);
@@ -304,7 +304,7 @@ class RecruitmentController extends Controller
         $candidate = $this->candidateModel->find((int) $id);
         if ($candidate) {
             $this->candidateModel->delete((int) $id);
-            $this->setFlash('success', 'Candidate removed from ATS pipeline.');
+            $this->setFlash('success', '候选人已从 ATS 流程中移除。');
         }
 
         $this->redirect('recruitment/ats');

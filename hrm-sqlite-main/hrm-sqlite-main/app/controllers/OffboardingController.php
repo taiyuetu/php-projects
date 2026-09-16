@@ -23,7 +23,7 @@ class OffboardingController extends Controller
         $paginatedOffboarded = $this->paginate($offboardedEmployees, 10, 'page_offboarded');
 
         $this->render('offboarding/index', [
-            'pageTitle'            => 'Offboarding Management',
+            'pageTitle'            => '离职管理',
             'activeOffboardings'   => $paginatedActive['items'],
             'activePagination'     => $paginatedActive,
             'offboardedEmployees'  => $paginatedOffboarded['items'],
@@ -38,20 +38,20 @@ class OffboardingController extends Controller
     {
         $employeeId = (int) ($employeeId ?: $this->input('employee_id'));
         if (!$employeeId) {
-            $this->setFlash('error', 'Please select an employee to offboard.');
+            $this->setFlash('error', '请选择需要办理离职的员工。');
             $this->redirect('employee');
         }
 
         $employee = $this->employeeModel->findWithDepartment($employeeId);
         if (!$employee) {
-            $this->setFlash('error', 'Employee not found.');
+            $this->setFlash('error', '未找到该员工。');
             $this->redirect('employee');
         }
 
         // Check if there is already an active offboarding in progress
         $existing = $this->offboardingModel->findByEmployeeId($employeeId);
         if ($existing && $existing['status'] === 'In Progress') {
-            $this->setFlash('info', 'An offboarding workflow is already in progress for this employee.');
+            $this->setFlash('info', '该员工已有正在进行的离职流程。');
             $this->redirect('offboarding/tasks/' . $existing['id']);
             return;
         }
@@ -63,19 +63,19 @@ class OffboardingController extends Controller
             $notes = (string) $this->input('notes', '');
 
             if (empty($reason)) {
-                $this->setFlash('error', 'Please specify a reason for departure.');
+                $this->setFlash('error', '请说明离职原因。');
                 $this->redirect('offboarding/initiate/' . $employeeId);
                 return;
             }
 
             $offboardingId = $this->offboardingModel->initiate($employeeId, $exitDate, $reason, $notes);
-            $this->setFlash('success', 'Offboarding initiated for ' . $employee['first_name'] . ' ' . $employee['last_name'] . '. Please complete the exit checklist.');
+            $this->setFlash('success', '已为 ' . $employee['first_name'] . ' ' . $employee['last_name'] . ' 发起离职流程，请完成离职交接清单。');
             $this->redirect('offboarding/tasks/' . $offboardingId);
             return;
         }
 
         $this->render('offboarding/initiate', [
-            'pageTitle' => 'Initiate Offboarding - ' . $employee['first_name'] . ' ' . $employee['last_name'],
+            'pageTitle' => '办理离职 - ' . $employee['first_name'] . ' ' . $employee['last_name'],
             'employee'  => $employee,
         ]);
     }
@@ -84,12 +84,12 @@ class OffboardingController extends Controller
     {
         $record = $this->offboardingModel->findWithTasks((int) $id);
         if (!$record) {
-            $this->setFlash('error', 'Offboarding record not found.');
+            $this->setFlash('error', '未找到该离职记录。');
             $this->redirect('offboarding');
         }
 
         $this->render('offboarding/tasks', [
-            'pageTitle' => 'Offboarding Checklist - ' . $record['first_name'] . ' ' . $record['last_name'],
+            'pageTitle' => '离职清单 - ' . $record['first_name'] . ' ' . $record['last_name'],
             'record'    => $record,
         ]);
     }
@@ -103,14 +103,14 @@ class OffboardingController extends Controller
 
         $task = $this->offboardingModel->getTask((int) $taskId);
         if (!$task) {
-            $this->setFlash('error', 'Task not found.');
+            $this->setFlash('error', '未找到该任务。');
             $this->redirect('offboarding');
         }
 
         $isCompleted = (int) $this->input('is_completed', 0);
         $this->offboardingModel->toggleTask((int) $taskId, $isCompleted);
 
-        $this->setFlash('success', 'Checklist task updated.');
+        $this->setFlash('success', '清单任务状态已更新。');
         $this->redirect('offboarding/tasks/' . $task['offboarding_id']);
     }
 
@@ -126,9 +126,9 @@ class OffboardingController extends Controller
 
         if (!empty($name)) {
             $this->offboardingModel->addTask((int) $offboardingId, $name, $desc);
-            $this->setFlash('success', 'Custom clearance item added.');
+            $this->setFlash('success', '自定义离职交接任务已添加。');
         } else {
-            $this->setFlash('error', 'Task name cannot be empty.');
+            $this->setFlash('error', '任务名称不能为空。');
         }
 
         $this->redirect('offboarding/tasks/' . (int) $offboardingId);
@@ -146,10 +146,10 @@ class OffboardingController extends Controller
 
         try {
             $archiveId = $this->offboardingModel->finishOffboarding((int) $id, $userId, $finalNotes ? trim($finalNotes) : null);
-            $this->setFlash('success', 'Offboarding completed successfully! Employee data has been moved to the Offboarded Employees table.');
+            $this->setFlash('success', '离职流程顺利完成！员工数据已移至已离职员工归档表。');
             $this->redirect('offboarding?tab=offboarded');
         } catch (Exception $e) {
-            $this->setFlash('error', 'Failed to complete offboarding: ' . $e->getMessage());
+            $this->setFlash('error', '完成离职失败：' . $e->getMessage());
             $this->redirect('offboarding/tasks/' . (int) $id);
         }
     }
@@ -158,12 +158,12 @@ class OffboardingController extends Controller
     {
         $employee = $this->offboardedModel->findWithDetails((int) $id);
         if (!$employee) {
-            $this->setFlash('error', 'Offboarded employee record not found.');
+            $this->setFlash('error', '未找到该已离职员工记录。');
             $this->redirect('offboarding?tab=offboarded');
         }
 
         $this->render('offboarding/view', [
-            'pageTitle' => 'Offboarded Employee Profile - ' . $employee['first_name'] . ' ' . $employee['last_name'],
+            'pageTitle' => '已离职员工档案 - ' . $employee['first_name'] . ' ' . $employee['last_name'],
             'employee'  => $employee,
         ]);
     }
@@ -177,7 +177,7 @@ class OffboardingController extends Controller
 
         $record = $this->offboardedModel->find((int) $id);
         if (!$record) {
-            $this->setFlash('error', 'Offboarded employee record not found.');
+            $this->setFlash('error', '未找到该已离职员工记录。');
             $this->redirect('offboarding?tab=offboarded');
         }
 
@@ -194,7 +194,7 @@ class OffboardingController extends Controller
             $this->employeeModel->delete($record['employee_id']);
         }
 
-        $this->setFlash('success', 'Offboarded employee permanently deleted.');
+        $this->setFlash('success', '已离职员工记录已永久删除。');
         $this->redirect('offboarding?tab=offboarded');
     }
 }

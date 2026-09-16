@@ -4,12 +4,12 @@ class Onboarding extends Model
     protected string $table = 'onboarding';
 
     public static array $defaultTasks = [
-        'Identity & Document Verification' => 'Verify government ID, work authorization, and educational certificates.',
-        'Contract & Policy Signing'       => 'Sign employment contract, NDA, and employee handbook acknowledgment.',
-        'IT & Equipment Provisioning'     => 'Issue laptop, configure email account, and grant access to company tools.',
-        'Team Introduction & Orientation'  => 'Introduce to team lead and colleagues, conduct office walkthrough.',
-        'Payroll & Benefits Setup'        => 'Collect bank details, configure tax information and medical benefits.',
-        'Compliance & Safety Briefing'    => 'Complete mandatory workplace safety and cybersecurity training.',
+        '身份与材料核验'            => '核对身份证件、工作许可及学历证书。',
+        '合同与制度签署'            => '签署劳动合同、保密协议（NDA）及员工手册确认书。',
+        'IT与设备配置'             => '发配电脑、配置企业邮箱并开通相关工具权限。',
+        '团队介绍与入职引导'         => '介绍给团队负责人及同事，带其熟悉办公环境。',
+        '薪资与福利设置'            => '收集银行卡信息，配置税务信息与医疗福利。',
+        '合规与安全培训'            => '完成必须的职场安全与信息安全培训。',
     ];
 
     public function allWithDetails(): array

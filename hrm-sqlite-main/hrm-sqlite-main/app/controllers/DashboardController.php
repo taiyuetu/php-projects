@@ -17,7 +17,7 @@ class DashboardController extends Controller
         $candidateModel = $this->model('Candidate');
 
         $data = [
-            'pageTitle'       => 'Dashboard',
+            'pageTitle'       => '仪表盘',
             'totalEmployees'  => $employeeModel->count(),
             'activeEmployees' => $employeeModel->countActive(),
             'totalDepartments'=> $departmentModel->count(),

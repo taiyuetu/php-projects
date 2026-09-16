@@ -28,11 +28,11 @@ class AuthController extends Controller
                 $_SESSION['employee_id']  = $user['employee_id'];
                 $this->redirect('dashboard');
             } else {
-                $this->setFlash('error', 'Invalid username or password.');
+                $this->setFlash('error', '用户名或密码无效。');
             }
         }
 
-        $this->render('auth/login', ['pageTitle' => 'Login'], 'layouts/auth');
+        $this->render('auth/login', ['pageTitle' => '登录'], 'layouts/auth');
     }
 
     public function logout()

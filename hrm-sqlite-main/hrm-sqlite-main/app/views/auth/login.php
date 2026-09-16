@@ -2,8 +2,8 @@
     <div class="card-body p-4">
         <div class="text-center mb-4">
             <i class="bi bi-people-fill fs-1 text-primary"></i>
-            <h4 class="mt-2 mb-0">HRMS Login</h4>
-            <p class="text-muted small">Human Resource Management System</p>
+            <h4 class="mt-2 mb-0">HRMS 系统登录</h4>
+            <p class="text-muted small">人力资源管理系统</p>
         </div>
 
         <?php if (!empty($_SESSION['flash'])): ?>
@@ -16,18 +16,18 @@
         <form method="POST" action="<?php echo BASE_URL; ?>/auth/login">
             <input type="hidden" name="_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(32))); ?>">
             <div class="mb-3">
-                <label class="form-label">Username</label>
+                <label class="form-label">用户名</label>
                 <input type="text" name="username" class="form-control" required autofocus>
             </div>
             <div class="mb-3">
-                <label class="form-label">Password</label>
+                <label class="form-label">密码</label>
                 <input type="password" name="password" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+            <button type="submit" class="btn btn-primary w-100">登录</button>
         </form>
 
         <div class="text-center mt-3 small text-muted">
-            Demo: <code>admin / password123</code>
+            测试账号：<code>admin / password123</code>
         </div>
     </div>
 </div>

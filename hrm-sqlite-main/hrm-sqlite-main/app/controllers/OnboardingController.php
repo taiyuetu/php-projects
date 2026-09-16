@@ -29,7 +29,7 @@ class OnboardingController extends Controller
         $paginated = $this->paginate($records, 10);
 
         $this->render('onboarding/index', [
-            'pageTitle'       => 'Onboarding',
+            'pageTitle'       => '入职管理',
             'records'         => $paginated['items'],
             'pagination'      => $paginated,
             'totalCount'      => count($records),
@@ -58,20 +58,20 @@ class OnboardingController extends Controller
             $notes = trim((string) $this->input('notes', ''));
 
             if ($firstName === '' || $lastName === '' || $email === '') {
-                $this->setFlash('error', 'First name, last name, and email are required.');
+                $this->setFlash('error', '名字、姓氏和邮箱必填。');
                 $this->redirect('onboarding/create');
                 return;
             }
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $this->setFlash('error', 'Please enter a valid email address.');
+                $this->setFlash('error', '请输入有效的邮箱地址。');
                 $this->redirect('onboarding/create');
                 return;
             }
 
             // Check if email is already in use
             if ($this->employeeModel->findOneBy(['email' => $email])) {
-                $this->setFlash('error', 'An employee with this email address already exists.');
+                $this->setFlash('error', '使用该邮箱的员工已存在。');
                 $this->redirect('onboarding/create');
                 return;
             }
@@ -116,7 +116,7 @@ class OnboardingController extends Controller
                 );
             }
 
-            $this->setFlash('success', "New employee {$firstName} {$lastName} ({$code}) created and onboarding workflow launched!");
+            $this->setFlash('success', "新员工 {$firstName} {$lastName} ({$code}) 创建成功，已启动入职流程！");
             $this->redirect('onboarding/tasks/' . $onboardingId);
             return;
         }
@@ -128,7 +128,7 @@ class OnboardingController extends Controller
         }
 
         $this->render('onboarding/create', [
-            'pageTitle'     => 'Onboard New Employee',
+            'pageTitle'     => '办理新员工入职',
             'departments'   => $this->departmentModel->all('name ASC'),
             'suggestedCode' => $this->employeeModel->generateEmployeeCode(),
             'candidate'     => $candidate,
@@ -139,12 +139,12 @@ class OnboardingController extends Controller
     {
         $record = $this->onboardingModel->findWithTasks((int) $id);
         if (!$record) {
-            $this->setFlash('error', 'Onboarding record not found.');
+            $this->setFlash('error', '未找到该入职记录。');
             $this->redirect('onboarding');
         }
 
         $this->render('onboarding/tasks', [
-            'pageTitle' => 'Onboarding Checklist - ' . $record['first_name'] . ' ' . $record['last_name'],
+            'pageTitle' => '入职清单 - ' . $record['first_name'] . ' ' . $record['last_name'],
             'record'    => $record,
         ]);
     }
@@ -158,14 +158,14 @@ class OnboardingController extends Controller
 
         $task = $this->onboardingModel->getTask((int) $taskId);
         if (!$task) {
-            $this->setFlash('error', 'Task not found.');
+            $this->setFlash('error', '未找到该任务。');
             $this->redirect('onboarding');
         }
 
         $isCompleted = (int) $this->input('is_completed', 0);
         $this->onboardingModel->toggleTask((int) $taskId, $isCompleted);
 
-        $this->setFlash('success', 'Checklist task updated.');
+        $this->setFlash('success', '清单任务状态已更新。');
         $this->redirect('onboarding/tasks/' . $task['onboarding_id']);
     }
 
@@ -181,9 +181,9 @@ class OnboardingController extends Controller
 
         if (!empty($name)) {
             $this->onboardingModel->addTask((int) $onboardingId, $name, $desc);
-            $this->setFlash('success', 'Custom checklist item added.');
+            $this->setFlash('success', '自定义清单任务已添加。');
         } else {
-            $this->setFlash('error', 'Task name cannot be empty.');
+            $this->setFlash('error', '任务名称不能为空。');
         }
 
         $this->redirect('onboarding/tasks/' . (int) $onboardingId);
@@ -199,7 +199,7 @@ class OnboardingController extends Controller
         $notes = $this->input('notes');
         $this->onboardingModel->completeOnboarding((int) $id, $notes ? trim($notes) : null);
 
-        $this->setFlash('success', 'Onboarding has been marked as Completed!');
+        $this->setFlash('success', '入职流程已标记为已完成！');
         $this->redirect('onboarding');
     }
 }

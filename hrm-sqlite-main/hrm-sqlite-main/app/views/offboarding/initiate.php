@@ -2,9 +2,9 @@
     <div class="col-md-8">
         <div class="card p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="mb-0 text-danger"><i class="bi bi-box-arrow-right me-2"></i> Initiate Offboarding</h4>
+                <h4 class="mb-0 text-danger"><i class="bi bi-box-arrow-right me-2"></i> 发起离职办理</h4>
                 <a href="<?php echo BASE_URL; ?>/employee" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-left"></i> Back to Employees
+                    <i class="bi bi-arrow-left"></i> 返回员工列表
                 </a>
             </div>
 
@@ -14,10 +14,10 @@
                 <div>
                     <h5 class="mb-1"><?php echo htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']); ?></h5>
                     <div class="text-muted small">
-                        <strong>Code:</strong> <?php echo htmlspecialchars($employee['employee_code']); ?> |
-                        <strong>Department:</strong> <?php echo htmlspecialchars($employee['department_name'] ?? 'Unassigned'); ?> |
-                        <strong>Designation:</strong> <?php echo htmlspecialchars($employee['designation'] ?? '—'); ?> |
-                        <strong>Hire Date:</strong> <?php echo htmlspecialchars($employee['hire_date'] ?? '—'); ?>
+                        <strong>工号：</strong> <?php echo htmlspecialchars($employee['employee_code']); ?> |
+                        <strong>部门：</strong> <?php echo htmlspecialchars($employee['department_name'] ?? '未分配'); ?> |
+                        <strong>职位：</strong> <?php echo htmlspecialchars($employee['designation'] ?? '—'); ?> |
+                        <strong>入职日期：</strong> <?php echo htmlspecialchars($employee['hire_date'] ?? '—'); ?>
                     </div>
                 </div>
             </div>
@@ -25,8 +25,7 @@
             <div class="alert alert-warning small d-flex gap-2 align-items-center mb-4">
                 <i class="bi bi-info-circle fs-5"></i>
                 <div>
-                    Starting this process generates departure clearance checklists (asset collection, IT access revocation, exit interview). 
-                    When clearance is finished, the employee's data will automatically move to the <strong>Offboarded Employees Table</strong>.
+                    启动此流程将生成离职交接清单（资产收回、IT权限撤销、离职面谈等）。当交接完成后，员工数据将自动移至<strong>已离职员工表</strong>。
                 </div>
             </div>
 
@@ -35,32 +34,32 @@
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Exit Date / Last Working Day <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">离职日期 / 最后工作日 <span class="text-danger">*</span></label>
                         <input type="date" name="exit_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Reason for Departure <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">离职原因 <span class="text-danger">*</span></label>
                         <select name="reason" class="form-select" required>
-                            <option value="">-- Select Reason --</option>
-                            <option value="Resignation">Voluntary Resignation</option>
-                            <option value="Termination">Involuntary Termination</option>
-                            <option value="End of Contract">Contract Expiration</option>
-                            <option value="Layoff">Redundancy / Layoff</option>
-                            <option value="Retirement">Retirement</option>
-                            <option value="Other">Other</option>
+                            <option value="">-- 选择离职原因 --</option>
+                            <option value="Resignation">主动辞职</option>
+                            <option value="Termination">解雇 / 辞退</option>
+                            <option value="End of Contract">合同到期</option>
+                            <option value="Layoff">裁员</option>
+                            <option value="Retirement">退休</option>
+                            <option value="Other">其他</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label fw-semibold">Handover Notes & Remarks</label>
-                    <textarea name="notes" class="form-control" rows="3" placeholder="Provide any details regarding handover, asset tracking, or departure circumstances..."></textarea>
+                    <label class="form-label fw-semibold">交接说明与备注</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="提供有关交接、资产追溯或离职情况的具体说明..."></textarea>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2">
-                    <a href="<?php echo BASE_URL; ?>/employee" class="btn btn-light">Cancel</a>
+                    <a href="<?php echo BASE_URL; ?>/employee" class="btn btn-light">取消</a>
                     <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-box-arrow-right"></i> Start Offboarding Checklist
+                        <i class="bi bi-box-arrow-right"></i> 启动离职交接清单
                     </button>
                 </div>
             </form>

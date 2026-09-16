@@ -18,7 +18,7 @@ class EmployeeController extends Controller
         $paginated = $this->paginate($employees, 10);
 
         $this->render('employees/index', [
-            'pageTitle'  => 'Employees',
+            'pageTitle'  => '员工管理',
             'employees'  => $paginated['items'],
             'pagination' => $paginated,
             'keyword'    => $keyword,
@@ -29,7 +29,7 @@ class EmployeeController extends Controller
     {
         $employee = $this->employeeModel->findWithDepartment($id);
         if (!$employee) {
-            $this->setFlash('error', 'Employee not found.');
+            $this->setFlash('error', '未找到该员工。');
             $this->redirect('employee');
         }
 
@@ -37,7 +37,7 @@ class EmployeeController extends Controller
         $leaveModel = $this->model('LeaveRequest');
 
         $this->render('employees/view', [
-            'pageTitle' => 'Employee Profile',
+            'pageTitle' => '员工详情',
             'employee'  => $employee,
             'attendance'=> $attendanceModel->historyForEmployee($id),
             'leaves'    => $leaveModel->forEmployee($id),
@@ -47,7 +47,7 @@ class EmployeeController extends Controller
     public function create()
     {
         // New employees are registered and onboarded via the Onboarding workflow
-        $this->setFlash('info', 'New employees are registered through the Onboarding workflow.');
+        $this->setFlash('info', '新员工需通过入职流程完成注册。');
         $this->redirect('onboarding/create');
     }
 
@@ -55,7 +55,7 @@ class EmployeeController extends Controller
     {
         $employee = $this->employeeModel->find($id);
         if (!$employee) {
-            $this->setFlash('error', 'Employee not found.');
+            $this->setFlash('error', '未找到该员工。');
             $this->redirect('employee');
         }
 
@@ -65,7 +65,7 @@ class EmployeeController extends Controller
         }
 
         $this->render('employees/form', [
-            'pageTitle'   => 'Edit Employee',
+            'pageTitle'   => '编辑员工',
             'departments' => $this->departmentModel->all('name ASC'),
             'employee'    => $employee,
             'code'        => $employee['employee_code'],
@@ -91,13 +91,13 @@ class EmployeeController extends Controller
         ];
 
         if (empty($data['first_name']) || empty($data['last_name']) || empty($data['email'])) {
-            $this->setFlash('error', 'First name, last name and email are required.');
+            $this->setFlash('error', '名字、姓氏和邮箱必填。');
             $this->redirect($id ? "employee/edit/{$id}" : 'employee/create');
         }
 
         if ($id) {
             $this->employeeModel->update($id, $data);
-            $this->setFlash('success', 'Employee updated successfully.');
+            $this->setFlash('success', '员工信息更新成功。');
         } else {
             $data['employee_code'] = $this->employeeModel->generateEmployeeCode();
             $id = (int) $this->employeeModel->insert($data);
@@ -107,7 +107,7 @@ class EmployeeController extends Controller
             $startDate = $data['hire_date'] ?: date('Y-m-d');
             $onboardingModel->createForEmployee($id, $startDate, null, 'New employee onboarding');
 
-            $this->setFlash('success', 'Employee added successfully and onboarding checklist created.');
+            $this->setFlash('success', '员工添加成功并已创建入职清单。');
         }
 
         $this->redirect('employee');
@@ -116,7 +116,7 @@ class EmployeeController extends Controller
     public function delete($id)
     {
         // Deletion is replaced by offboarding
-        $this->setFlash('info', 'Employee deletion is disabled. Please use the Offboarding process.');
+        $this->setFlash('info', '禁止直接删除员工，请通过离职流程办理。');
         $this->redirect('offboarding/initiate/' . (int) $id);
     }
 }

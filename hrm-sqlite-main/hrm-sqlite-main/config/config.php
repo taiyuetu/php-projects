@@ -18,7 +18,7 @@ if ($configuredBaseUrl === false || $configuredBaseUrl === '') {
     $configuredBaseUrl = $detectedBaseUrl === '/' || $detectedBaseUrl === '.' ? '' : $detectedBaseUrl;
 }
 define('BASE_URL', rtrim($configuredBaseUrl, '/'));
-define('APP_NAME', 'HRMS - Human Resource Management System');
+define('APP_NAME', 'HRMS - 人力资源管理系统');
 
 // Default controller/action when no route is given
 define('DEFAULT_CONTROLLER', 'Dashboard');

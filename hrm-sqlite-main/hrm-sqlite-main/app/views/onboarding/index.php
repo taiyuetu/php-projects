@@ -3,7 +3,7 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-primary"><i class="bi bi-person-plus"></i></div>
             <div>
-                <div class="text-muted small">Total Onboardings</div>
+                <div class="text-muted small">入职流程总数</div>
                 <div class="fs-4 fw-bold"><?php echo $totalCount; ?></div>
             </div>
         </div>
@@ -12,7 +12,7 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-warning"><i class="bi bi-hourglass-split"></i></div>
             <div>
-                <div class="text-muted small">In Progress</div>
+                <div class="text-muted small">进行中</div>
                 <div class="fs-4 fw-bold"><?php echo $inProgressCount; ?></div>
             </div>
         </div>
@@ -21,7 +21,7 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-success"><i class="bi bi-check2-circle"></i></div>
             <div>
-                <div class="text-muted small">Completed</div>
+                <div class="text-muted small">已完成</div>
                 <div class="fs-4 fw-bold"><?php echo $completedCount; ?></div>
             </div>
         </div>
@@ -29,9 +29,9 @@
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Employee Onboarding</h4>
+    <h4 class="mb-0">员工入职管理</h4>
     <a href="<?php echo BASE_URL; ?>/onboarding/create" class="btn btn-primary">
-        <i class="bi bi-person-plus"></i> Onboard New Employee
+        <i class="bi bi-person-plus"></i> 办理新员工入职
     </a>
 </div>
 
@@ -40,18 +40,18 @@
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Start Date</th>
-                    <th>Target Date</th>
-                    <th style="width: 220px;">Progress</th>
-                    <th>Status</th>
-                    <th class="text-end">Actions</th>
+                    <th>员工信息</th>
+                    <th>所属部门</th>
+                    <th>入职日期</th>
+                    <th>目标完成日期</th>
+                    <th style="width: 220px;">入职进度</th>
+                    <th>状态</th>
+                    <th class="text-end">操作</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($records)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-4">No onboarding records found. Click "Onboard New Employee" to register and onboard a new hire.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">暂无入职记录。点击“办理新员工入职”登记并办理新员工入职手续。</td></tr>
                 <?php else: foreach ($records as $r): 
                     $percent = $r['total_tasks'] > 0 ? round(($r['completed_tasks'] / $r['total_tasks']) * 100) : 0;
                 ?>
@@ -76,14 +76,14 @@
                         </td>
                         <td>
                             <?php if ($r['status'] === 'Completed'): ?>
-                                <span class="badge bg-success"><i class="bi bi-check2"></i> Completed</span>
+                                <span class="badge bg-success"><i class="bi bi-check2"></i> 已完成</span>
                             <?php else: ?>
-                                <span class="badge bg-warning text-dark"><i class="bi bi-arrow-repeat"></i> In Progress</span>
+                                <span class="badge bg-warning text-dark"><i class="bi bi-arrow-repeat"></i> 进行中</span>
                             <?php endif; ?>
                         </td>
                         <td class="text-end">
                             <a href="<?php echo BASE_URL; ?>/onboarding/tasks/<?php echo $r['id']; ?>" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-list-check"></i> Checklist
+                                <i class="bi bi-list-check"></i> 查看清单
                             </a>
                         </td>
                     </tr>

@@ -4,12 +4,12 @@ class Offboarding extends Model
     protected string $table = 'offboarding';
 
     public static array $defaultTasks = [
-        'Notice & Exit Agreement'          => 'Confirm last working day and verify notice period or exit agreement terms.',
-        'Handover of Tasks & Documents'    => 'Transfer all ongoing projects, files, and responsibilities to designated colleague.',
-        'Return of Company Assets'         => 'Collect laptop, monitors, access cards, keys, and any company hardware.',
-        'Revocation of IT & System Access' => 'Deactivate email, Slack, VPN, cloud dashboards, and internal software accounts.',
-        'Exit Interview & Feedback'        => 'Conduct exit interview to collect feedback on employee experience.',
-        'Final Payroll & Clearance'        => 'Calculate final payout, encash unused leaves, and issue financial clearance.',
+        '通知与离职协议核对'          => '确认最后工作日，核对通知期与离职协议条款。',
+        '工作与文档交接'            => '将所有进行中的项目、文件和职责交接给指定同事。',
+        '公司资产退还'             => '收回笔记本电脑、显示器、门禁卡、钥匙及公司硬件设备。',
+        'IT与系统权限撤销'         => '停用邮箱、Slack、VPN、云端控制台及内部软件账号。',
+        '离职面谈与反馈'            => '进行离职面谈，收集员工关于工作体验的反馈建议。',
+        '最终薪酬与结算清算'         => '计算最终核资、未结年假折算，并出具财务结清证明。',
     ];
 
     public function allWithDetails(bool $activeOnly = true): array

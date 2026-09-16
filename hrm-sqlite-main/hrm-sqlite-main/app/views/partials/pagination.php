@@ -25,14 +25,14 @@ $endPage = min($totalPages, $currentPage + 2);
 ?>
 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 mt-3 pt-3 border-top">
     <div class="text-muted small">
-        Showing <span class="fw-semibold"><?php echo $from; ?></span> to <span class="fw-semibold"><?php echo $to; ?></span> of <span class="fw-semibold"><?php echo $totalItems; ?></span> entries
+        显示第 <span class="fw-semibold"><?php echo $from; ?></span> 至 <span class="fw-semibold"><?php echo $to; ?></span> 条，共 <span class="fw-semibold"><?php echo $totalItems; ?></span> 条记录
     </div>
     <?php if ($totalPages > 1): ?>
         <nav aria-label="Page navigation">
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo $currentPage > 1 ? htmlspecialchars($getPageUrl($currentPage - 1)) : '#'; ?>" aria-label="Previous">
-                        <span aria-hidden="true">&laquo; Prev</span>
+                    <a class="page-link" href="<?php echo $currentPage > 1 ? htmlspecialchars($getPageUrl($currentPage - 1)) : '#'; ?>" aria-label="上一页">
+                        <span aria-hidden="true">&laquo; 上一页</span>
                     </a>
                 </li>
 
@@ -61,8 +61,8 @@ $endPage = min($totalPages, $currentPage + 2);
                 <?php endif; ?>
 
                 <li class="page-item <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo $currentPage < $totalPages ? htmlspecialchars($getPageUrl($currentPage + 1)) : '#'; ?>" aria-label="Next">
-                        <span aria-hidden="true">Next &raquo;</span>
+                    <a class="page-link" href="<?php echo $currentPage < $totalPages ? htmlspecialchars($getPageUrl($currentPage + 1)) : '#'; ?>" aria-label="下一页">
+                        <span aria-hidden="true">下一页 &raquo;</span>
                     </a>
                 </li>
             </ul>

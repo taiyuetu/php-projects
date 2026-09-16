@@ -3,7 +3,7 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-primary"><i class="bi bi-briefcase"></i></div>
             <div>
-                <div class="text-muted small">Open Job Vacancies</div>
+                <div class="text-muted small">招聘中职位</div>
                 <div class="fs-4 fw-bold"><?php echo $totalOpen; ?></div>
             </div>
         </div>
@@ -12,7 +12,7 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-info"><i class="bi bi-person-lines-fill"></i></div>
             <div>
-                <div class="text-muted small">Active Candidates in Pipeline</div>
+                <div class="text-muted small">招聘流程中活跃候选人</div>
                 <div class="fs-4 fw-bold"><?php echo $activeCandidates; ?></div>
             </div>
         </div>
@@ -21,29 +21,33 @@
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-success"><i class="bi bi-kanban"></i></div>
             <div>
-                <div class="text-muted small">ATS Pipeline</div>
-                <div><a href="<?php echo BASE_URL; ?>/recruitment/ats" class="btn btn-sm btn-outline-success mt-1">Open ATS Board &rarr;</a></div>
+                <div class="text-muted small">ATS 招聘看板</div>
+                <div><a href="<?php echo BASE_URL; ?>/recruitment/ats" class="btn btn-sm btn-outline-success mt-1">进入 ATS 招聘看板 &rarr;</a></div>
             </div>
         </div>
     </div>
 </div>
 
+<?php
+$empTypeMap = ['Full-Time' => '全职', 'Part-Time' => '兼职', 'Contract' => '合同工', 'Internship' => '实习'];
+?>
+
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div class="d-flex align-items-center gap-2">
-        <h4 class="mb-0">Job Openings</h4>
+        <h4 class="mb-0">招聘职位</h4>
         <div class="btn-group btn-group-sm ms-2" role="group">
-            <a href="<?php echo BASE_URL; ?>/recruitment" class="btn <?php echo empty($statusFilter) ? 'btn-secondary' : 'btn-outline-secondary'; ?>">All</a>
-            <a href="<?php echo BASE_URL; ?>/recruitment?status=Open" class="btn <?php echo $statusFilter === 'Open' ? 'btn-success' : 'btn-outline-secondary'; ?>">Open</a>
-            <a href="<?php echo BASE_URL; ?>/recruitment?status=Paused" class="btn <?php echo $statusFilter === 'Paused' ? 'btn-warning' : 'btn-outline-secondary'; ?>">Paused</a>
-            <a href="<?php echo BASE_URL; ?>/recruitment?status=Closed" class="btn <?php echo $statusFilter === 'Closed' ? 'btn-dark' : 'btn-outline-secondary'; ?>">Closed</a>
+            <a href="<?php echo BASE_URL; ?>/recruitment" class="btn <?php echo empty($statusFilter) ? 'btn-secondary' : 'btn-outline-secondary'; ?>">全部</a>
+            <a href="<?php echo BASE_URL; ?>/recruitment?status=Open" class="btn <?php echo $statusFilter === 'Open' ? 'btn-success' : 'btn-outline-secondary'; ?>">招聘中</a>
+            <a href="<?php echo BASE_URL; ?>/recruitment?status=Paused" class="btn <?php echo $statusFilter === 'Paused' ? 'btn-warning' : 'btn-outline-secondary'; ?>">暂停</a>
+            <a href="<?php echo BASE_URL; ?>/recruitment?status=Closed" class="btn <?php echo $statusFilter === 'Closed' ? 'btn-dark' : 'btn-outline-secondary'; ?>">已关闭</a>
         </div>
     </div>
     <div class="d-flex gap-2">
         <a href="<?php echo BASE_URL; ?>/recruitment/ats" class="btn btn-outline-primary">
-            <i class="bi bi-kanban"></i> ATS Pipeline
+            <i class="bi bi-kanban"></i> ATS 招聘看板
         </a>
         <a href="<?php echo BASE_URL; ?>/recruitment/createJob" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Post Job Opening
+            <i class="bi bi-plus-lg"></i> 发布招聘职位
         </a>
     </div>
 </div>
@@ -53,18 +57,18 @@
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
-                    <th>Job Title</th>
-                    <th>Department</th>
-                    <th>Type & Location</th>
-                    <th>Slots</th>
-                    <th>Applicants (ATS)</th>
-                    <th>Status</th>
-                    <th class="text-end">Actions</th>
+                    <th>职位名称</th>
+                    <th>所属部门</th>
+                    <th>工作类型与地点</th>
+                    <th>拟招人数</th>
+                    <th>候选人统计 (ATS)</th>
+                    <th>状态</th>
+                    <th class="text-end">操作</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($jobs)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-4">No job openings found. Click "Post Job Opening" to create one.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">暂无招聘职位。点击“发布招聘职位”进行创建。</td></tr>
                 <?php else: foreach ($jobs as $job): ?>
                     <tr>
                         <td>
@@ -73,44 +77,44 @@
                                 <div class="text-muted small"><i class="bi bi-cash me-1"></i><?php echo htmlspecialchars($job['salary_range']); ?></div>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($job['department_name'] ?? 'Unassigned'); ?></td>
+                        <td><?php echo htmlspecialchars($job['department_name'] ?? '未分配'); ?></td>
                         <td>
-                            <div><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($job['employment_type']); ?></span></div>
-                            <div class="text-muted small"><?php echo htmlspecialchars($job['location'] ?? 'Singapore'); ?></div>
+                            <div><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($empTypeMap[$job['employment_type']] ?? $job['employment_type']); ?></span></div>
+                            <div class="text-muted small"><?php echo htmlspecialchars($job['location'] ?? '新加坡'); ?></div>
                         </td>
-                        <td><span class="badge bg-secondary"><?php echo (int) $job['openings_count']; ?></span></td>
+                        <td><span class="badge bg-secondary"><?php echo (int) $job['openings_count']; ?> 人</span></td>
                         <td>
                             <a href="<?php echo BASE_URL; ?>/recruitment/ats?job_id=<?php echo $job['id']; ?>" class="text-decoration-none">
-                                <span class="badge bg-info text-dark me-1"><?php echo (int) $job['active_candidates']; ?> Active</span>
-                                <span class="badge bg-light text-dark border"><?php echo (int) $job['total_candidates']; ?> Total</span>
+                                <span class="badge bg-info text-dark me-1"><?php echo (int) $job['active_candidates']; ?> 活跃</span>
+                                <span class="badge bg-light text-dark border"><?php echo (int) $job['total_candidates']; ?> 总计</span>
                             </a>
                             <?php if ((int) $job['hired_count'] > 0): ?>
-                                <span class="badge bg-success ms-1"><?php echo (int) $job['hired_count']; ?> Hired</span>
+                                <span class="badge bg-success ms-1"><?php echo (int) $job['hired_count']; ?> 已录用</span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <?php if ($job['status'] === 'Open'): ?>
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Open</span>
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> 招聘中</span>
                             <?php elseif ($job['status'] === 'Paused'): ?>
-                                <span class="badge bg-warning text-dark"><i class="bi bi-pause-circle"></i> Paused</span>
+                                <span class="badge bg-warning text-dark"><i class="bi bi-pause-circle"></i> 暂停中</span>
                             <?php else: ?>
-                                <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Closed</span>
+                                <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> 已关闭</span>
                             <?php endif; ?>
                         </td>
                         <td class="text-end text-nowrap">
-                            <a href="<?php echo BASE_URL; ?>/recruitment/ats?job_id=<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-info" title="View ATS Candidates">
+                            <a href="<?php echo BASE_URL; ?>/recruitment/ats?job_id=<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-info" title="查看 ATS 候选人">
                                 <i class="bi bi-people"></i> ATS
                             </a>
-                            <a href="<?php echo BASE_URL; ?>/recruitment/addCandidate?job_id=<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-success" title="Add Candidate">
+                            <a href="<?php echo BASE_URL; ?>/recruitment/addCandidate?job_id=<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-success" title="添加候选人">
                                 <i class="bi bi-person-plus"></i>
                             </a>
-                            <a href="<?php echo BASE_URL; ?>/recruitment/editJob/<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit Opening">
+                            <a href="<?php echo BASE_URL; ?>/recruitment/editJob/<?php echo $job['id']; ?>" class="btn btn-sm btn-outline-secondary" title="编辑职位">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <?php if ($job['status'] === 'Open'): ?>
-                                <form method="POST" action="<?php echo BASE_URL; ?>/recruitment/closeJob/<?php echo $job['id']; ?>" class="d-inline" onsubmit="return confirm('Close this job opening?');">
+                                <form method="POST" action="<?php echo BASE_URL; ?>/recruitment/closeJob/<?php echo $job['id']; ?>" class="d-inline" onsubmit="return confirm('确定关闭此招聘职位吗？');">
                                     <input type="hidden" name="_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ??= bin2hex(random_bytes(32))); ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Close Opening"><i class="bi bi-slash-circle"></i></button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="关闭职位"><i class="bi bi-slash-circle"></i></button>
                                 </form>
                             <?php endif; ?>
                         </td>
