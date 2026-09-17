@@ -12,9 +12,17 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0">员工入职管理</h4>
-    <a href="<?php echo BASE_URL; ?>/onboarding/create" class="btn btn-primary">
-        <i class="bi bi-person-plus"></i> 办理新员工入职
-    </a>
+    <div class="d-flex gap-2">
+        <a href="<?php echo BASE_URL; ?>/onboarding/qr" class="btn btn-outline-secondary">
+            <i class="bi bi-qr-code"></i> 入职二维码
+        </a>
+        <a href="<?php echo BASE_URL; ?>/onboarding/applications" class="btn btn-outline-primary">
+            <i class="bi bi-inbox"></i> 入职申请
+        </a>
+        <a href="<?php echo BASE_URL; ?>/onboarding/create" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> 办理新员工入职
+        </a>
+    </div>
 </div>
 
 <div class="card p-3">

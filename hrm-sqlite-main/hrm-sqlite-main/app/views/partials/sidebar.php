@@ -2,6 +2,7 @@
 $currentUrl = trim($_GET['url'] ?? 'dashboard', '/');
 $currentController = strtolower(explode('/', $currentUrl)[0] ?: 'dashboard');
 $role = $_SESSION['user_role'] ?? 'employee';
+$isApplicationSection = str_starts_with($currentUrl, 'onboarding/application') || str_starts_with($currentUrl, 'onboarding/qr');
 
 if (!function_exists('navActive')) {
     function navActive($section, $currentController) {
@@ -28,8 +29,13 @@ if (!function_exists('navActive')) {
             </a>
         </li>
         <li>
-            <a href="<?php echo BASE_URL; ?>/onboarding" class="nav-link text-white <?php echo navActive('onboarding', $currentController); ?>">
+            <a href="<?php echo BASE_URL; ?>/onboarding" class="nav-link text-white <?php echo navActive('onboarding', $currentController) && !$isApplicationSection ? 'active' : ''; ?>">
                 <i class="bi bi-person-plus me-2"></i> 入职管理
+            </a>
+        </li>
+        <li>
+            <a href="<?php echo BASE_URL; ?>/onboarding/applications" class="nav-link text-white <?php echo $isApplicationSection ? 'active' : ''; ?>">
+                <i class="bi bi-inbox me-2"></i> 入职申请
             </a>
         </li>
         <li>

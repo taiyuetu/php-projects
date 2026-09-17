@@ -33,6 +33,9 @@ attendance, leave, payroll, onboarding, offboarding, and recruitment workflows.
 - **Payroll** — generate and track monthly salary records.
 - **Onboarding** — register new hires and manage their onboarding checklist;
   the list shows only in-progress onboardings.
+- **QR-code onboarding** — a scannable QR code links new hires to a public,
+  mobile-friendly registration form; submissions are listed for HR review and
+  can be approved (which starts the onboarding workflow) or rejected.
 - **Offboarding** — run exit clearance checklists, archive departed employees,
   and rehire them back into the active roster when needed.
 - **Recruitment (ATS)** — job openings, candidates, pipeline stages, ratings,

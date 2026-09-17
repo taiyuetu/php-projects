@@ -112,6 +112,50 @@ CREATE TABLE IF NOT EXISTS onboarding_tasks (
     FOREIGN KEY (onboarding_id) REFERENCES onboarding(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS onboarding_invites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    created_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS onboarding_applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invite_id INTEGER,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    gender TEXT,
+    dob TEXT,
+    id_number TEXT,
+    ethnicity TEXT,
+    household_address TEXT,
+    emergency_contact TEXT,
+    emergency_relation TEXT,
+    emergency_phone TEXT,
+    education TEXT,
+    address TEXT,
+    department_id INTEGER,
+    designation TEXT,
+    expected_salary NUMERIC NOT NULL DEFAULT 0,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+    submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TEXT,
+    reviewed_by INTEGER,
+    review_comment TEXT,
+    hired_employee_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (invite_id) REFERENCES onboarding_invites(id) ON DELETE SET NULL,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (hired_employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS offboarding (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_id INTEGER NOT NULL,
