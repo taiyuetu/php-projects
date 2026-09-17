@@ -30,7 +30,7 @@ $payrollStatusMap = ['Paid' => '已发放', 'Unpaid' => '未发放', 'Pending' =
                     <tr><td colspan="6" class="text-center text-muted py-4">暂无薪水发放记录。</td></tr>
                 <?php else: foreach ($payroll as $row): ?>
                     <tr>
-                        <td class="fw-semibold"><?php echo htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></td>
+                        <td class="fw-semibold"><?php echo htmlspecialchars($row['last_name'] . $row['first_name']); ?></td>
                         <td><span class="badge bg-light text-dark border"><?php echo sprintf('%d年%02d月', $row['year'], $row['month']); ?></span></td>
                         <td>￥<?php echo number_format($row['basic_salary'], 2); ?></td>
                         <td class="fw-bold text-success">￥<?php echo number_format($row['net_salary'], 2); ?></td>

@@ -3,10 +3,11 @@
         <input type="text" name="q" value="<?php echo htmlspecialchars($keyword ?? ''); ?>" class="form-control" placeholder="按姓名、邮箱或工号搜索..." style="width: 280px;">
         <button class="btn btn-outline-secondary"><i class="bi bi-search"></i> 搜索</button>
     </form>
+    <a href="<?php echo BASE_URL; ?>/employee/create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> 新增员工</a>
 </div>
 
 <?php
-$empStatusMap = ['Active' => '在职', 'On Leave' => '休假', 'Terminated' => '已离职'];
+$empStatusMap = ['Active' => '在职', 'On Leave' => '休假'];
 ?>
 
 <div class="card p-3">
@@ -14,7 +15,7 @@ $empStatusMap = ['Active' => '在职', 'On Leave' => '休假', 'Terminated' => '
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
-                    <th>工号</th><th>姓名</th><th>邮箱</th><th>部门</th>
+                    <th>工号</th><th>姓名</th><th>电话</th><th>部门</th>
                     <th>职位</th><th>状态</th><th class="text-end">操作</th>
                 </tr>
             </thead>
@@ -26,10 +27,10 @@ $empStatusMap = ['Active' => '在职', 'On Leave' => '休假', 'Terminated' => '
                         <td><?php echo htmlspecialchars($e['employee_code']); ?></td>
                         <td>
                             <a href="<?php echo BASE_URL; ?>/employee/profile/<?php echo $e['id']; ?>" class="text-decoration-none fw-semibold">
-                                <?php echo htmlspecialchars($e['first_name'] . ' ' . $e['last_name']); ?>
+                                <?php echo htmlspecialchars($e['last_name'] . $e['first_name']); ?>
                             </a>
                         </td>
-                        <td><?php echo htmlspecialchars($e['email']); ?></td>
+                        <td><?php echo htmlspecialchars($e['phone'] ?? '—'); ?></td>
                         <td><?php echo htmlspecialchars($e['department_name'] ?? '—'); ?></td>
                         <td><?php echo htmlspecialchars($e['designation'] ?? '—'); ?></td>
                         <td><span class="badge badge-status-<?php echo $e['status']; ?>"><?php echo $empStatusMap[$e['status']] ?? $e['status']; ?></span></td>

@@ -16,7 +16,7 @@ $taskCnMap = [
     <div>
         <h4 class="mb-1">入职清单</h4>
         <div class="text-muted">
-            正在跟踪入职流程：<strong><?php echo htmlspecialchars($record['first_name'] . ' ' . $record['last_name']); ?></strong> (<?php echo htmlspecialchars($record['employee_code']); ?>)
+            正在跟踪入职流程：<strong><?php echo htmlspecialchars($record['last_name'] . $record['first_name']); ?></strong> (<?php echo htmlspecialchars($record['employee_code']); ?>)
         </div>
     </div>
     <a href="<?php echo BASE_URL; ?>/onboarding" class="btn btn-outline-secondary btn-sm">
@@ -32,7 +32,7 @@ $taskCnMap = [
             <table class="table table-sm table-borderless mb-0">
                 <tr>
                     <td class="text-muted" style="width: 110px;">姓名：</td>
-                    <td class="fw-semibold"><?php echo htmlspecialchars($record['first_name'] . ' ' . $record['last_name']); ?></td>
+                    <td class="fw-semibold"><?php echo htmlspecialchars($record['last_name'] . $record['first_name']); ?></td>
                 </tr>
                 <tr>
                     <td class="text-muted">工号：</td>

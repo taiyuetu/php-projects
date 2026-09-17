@@ -40,7 +40,7 @@ $attStatusMap = ['Present' => '出勤', 'Absent' => '缺勤', 'Late' => '迟到'
                     <tr><td colspan="5" class="text-center text-muted py-4">该日期暂无考勤记录。</td></tr>
                 <?php else: foreach ($attendance as $row): ?>
                     <tr>
-                        <td class="fw-semibold"><?php echo htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></td>
+                        <td class="fw-semibold"><?php echo htmlspecialchars($row['last_name'] . $row['first_name']); ?></td>
                         <td><?php echo htmlspecialchars($row['attendance_date']); ?></td>
                         <td><?php echo htmlspecialchars($row['check_in'] ?? '—'); ?></td>
                         <td><?php echo htmlspecialchars($row['check_out'] ?? '—'); ?></td>

@@ -18,7 +18,7 @@
                     <div class="alert alert-success d-flex align-items-center gap-2 mb-4">
                         <i class="bi bi-person-check fs-4"></i>
                         <div>
-                            <strong>正在从 ATS 转换候选人：</strong> <?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?>
+                            <strong>正在从 ATS 转换候选人：</strong> <?php echo htmlspecialchars($candidate['last_name'] . $candidate['first_name']); ?>
                             <span class="text-muted">(申请职位：<?php echo htmlspecialchars($candidate['job_title']); ?>)</span>
                         </div>
                     </div>
@@ -28,12 +28,12 @@
                 <h6 class="fw-bold text-uppercase text-secondary small border-bottom pb-2 mb-3">1. 个人基本信息</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">名字 <span class="text-danger">*</span></label>
-                        <input type="text" name="first_name" class="form-control" value="<?php echo htmlspecialchars($candidate['first_name'] ?? ''); ?>" placeholder="例如：San" required>
+                        <label class="form-label fw-semibold">姓氏 <span class="text-danger">*</span></label>
+                        <input type="text" name="last_name" class="form-control" value="<?php echo htmlspecialchars($candidate['last_name'] ?? ''); ?>" placeholder="例如：张" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">姓氏 <span class="text-danger">*</span></label>
-                        <input type="text" name="last_name" class="form-control" value="<?php echo htmlspecialchars($candidate['last_name'] ?? ''); ?>" placeholder="例如：Zhang" required>
+                        <label class="form-label fw-semibold">名字 <span class="text-danger">*</span></label>
+                        <input type="text" name="first_name" class="form-control" value="<?php echo htmlspecialchars($candidate['first_name'] ?? ''); ?>" placeholder="例如：三" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">电子邮箱 <span class="text-danger">*</span></label>
@@ -42,6 +42,10 @@
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">联系电话</label>
                         <input type="tel" name="phone" class="form-control" value="<?php echo htmlspecialchars($candidate['phone'] ?? ''); ?>" placeholder="例如：13800138000">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">身份证号</label>
+                        <input type="text" name="id_number" class="form-control" placeholder="身份证号码">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">性别</label>
@@ -54,10 +58,14 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">出生日期</label>
-                        <input type="date" name="dob" class="form-control">
+                        <input type="date" name="dob" class="form-control" onchange="calculateAge(this.value)">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">年龄</label>
+                        <input type="text" id="age" class="form-control bg-light" readonly placeholder="自动计算">
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-semibold">居住地址</label>
+                        <label class="form-label fw-semibold">家庭住址</label>
                         <input type="text" name="address" class="form-control" placeholder="街道地址、门牌号、邮政编码">
                     </div>
                 </div>
@@ -129,3 +137,20 @@
         </div>
     </div>
 </div>
+
+<script>
+function calculateAge(birthDate) {
+    if (!birthDate) {
+        document.getElementById('age').value = '';
+        return;
+    }
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    document.getElementById('age').value = age > 0 ? age : '';
+}
+</script>

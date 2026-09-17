@@ -79,7 +79,7 @@ $reasonCnMap = [
                                 <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($oe['employee_code']); ?></span></td>
                                 <td>
                                     <a href="<?php echo BASE_URL; ?>/offboarding/view/<?php echo $oe['id']; ?>" class="text-decoration-none fw-semibold">
-                                        <?php echo htmlspecialchars($oe['first_name'] . ' ' . $oe['last_name']); ?>
+                                        <?php echo htmlspecialchars($oe['last_name'] . $oe['first_name']); ?>
                                     </a>
                                     <div class="text-muted small"><?php echo htmlspecialchars($oe['email']); ?></div>
                                 </td>
@@ -92,6 +92,12 @@ $reasonCnMap = [
                                     <a href="<?php echo BASE_URL; ?>/offboarding/view/<?php echo $oe['id']; ?>" class="btn btn-sm btn-outline-secondary" title="查看档案">
                                         <i class="bi bi-eye"></i> 查看详情
                                     </a>
+                                    <form method="POST" action="<?php echo BASE_URL; ?>/offboarding/rehire/<?php echo $oe['id']; ?>" class="d-inline" onsubmit="return confirm('确定将此员工复职吗？员工将被重新添加到在职员工列表中。');">
+                                        <input type="hidden" name="_token" value="<?php echo $csrf; ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="复职">
+                                            <i class="bi bi-arrow-counterclockwise"></i> 复职
+                                        </button>
+                                    </form>
                                     <form method="POST" action="<?php echo BASE_URL; ?>/offboarding/deleteOffboarded/<?php echo $oe['id']; ?>" class="d-inline" onsubmit="return confirm('确定永久删除此已离职员工记录吗？此操作无法撤销。');">
                                         <input type="hidden" name="_token" value="<?php echo $csrf; ?>">
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="永久删除">
@@ -133,7 +139,7 @@ $reasonCnMap = [
                         ?>
                             <tr>
                                 <td>
-                                    <div class="fw-semibold"><?php echo htmlspecialchars($ao['first_name'] . ' ' . $ao['last_name']); ?></div>
+                                    <div class="fw-semibold"><?php echo htmlspecialchars($ao['last_name'] . $ao['first_name']); ?></div>
                                     <div class="text-muted small"><?php echo htmlspecialchars($ao['employee_code']); ?> · <?php echo htmlspecialchars($ao['email']); ?></div>
                                 </td>
                                 <td>

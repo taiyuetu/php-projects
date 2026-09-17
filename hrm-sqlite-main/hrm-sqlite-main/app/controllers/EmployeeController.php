@@ -37,18 +37,28 @@ class EmployeeController extends Controller
         $leaveModel = $this->model('LeaveRequest');
 
         $this->render('employees/view', [
-            'pageTitle' => '员工详情',
-            'employee'  => $employee,
-            'attendance'=> $attendanceModel->historyForEmployee($id),
-            'leaves'    => $leaveModel->forEmployee($id),
+            'pageTitle'     => $employee['last_name'] . $employee['first_name'] . ' - 员工档案',
+            'employee'      => $employee,
+            'attendance'    => $attendanceModel->historyForEmployee($id),
+            'leaves'        => $leaveModel->forEmployee($id),
+            'employeeModel' => $this->employeeModel,
         ]);
     }
 
     public function create()
     {
-        // New employees are registered and onboarded via the Onboarding workflow
-        $this->setFlash('info', '新员工需通过入职流程完成注册。');
-        $this->redirect('onboarding/create');
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->save();
+            return;
+        }
+
+        $this->render('employees/form', [
+            'pageTitle'     => '新增员工',
+            'departments'   => $this->departmentModel->all('name ASC'),
+            'employee'      => [],
+            'code'          => $this->employeeModel->generateEmployeeCode(),
+            'employeeModel' => $this->employeeModel,
+        ]);
     }
 
     public function edit($id)
@@ -65,10 +75,11 @@ class EmployeeController extends Controller
         }
 
         $this->render('employees/form', [
-            'pageTitle'   => '编辑员工',
-            'departments' => $this->departmentModel->all('name ASC'),
-            'employee'    => $employee,
-            'code'        => $employee['employee_code'],
+            'pageTitle'     => '编辑员工',
+            'departments'   => $this->departmentModel->all('name ASC'),
+            'employee'      => $employee,
+            'code'          => $employee['employee_code'],
+            'employeeModel' => $this->employeeModel,
         ]);
     }
 
@@ -79,12 +90,19 @@ class EmployeeController extends Controller
             'first_name'    => trim($this->input('first_name')),
             'last_name'     => trim($this->input('last_name')),
             'email'         => trim($this->input('email')),
-            'phone'         => trim($this->input('phone')),
+            'phone'         => trim($this->input('phone')) ?: null,
             'gender'        => $this->input('gender') ?: null,
             'dob'           => $this->input('dob') ?: null,
-            'address'       => trim($this->input('address')),
+            'id_number'     => trim($this->input('id_number')) ?: null,
+            'ethnicity'     => trim($this->input('ethnicity')) ?: null,
+            'education'     => $this->input('education') ?: null,
+            'address'       => trim($this->input('address')) ?: null,
+            'household_address' => trim($this->input('household_address')) ?: null,
+            'emergency_contact' => trim($this->input('emergency_contact')) ?: null,
+            'emergency_relation' => trim($this->input('emergency_relation')) ?: null,
+            'emergency_phone'   => trim($this->input('emergency_phone')) ?: null,
             'department_id' => $this->input('department_id') ?: null,
-            'designation'   => trim($this->input('designation')),
+            'designation'   => trim($this->input('designation')) ?: null,
             'hire_date'     => $this->input('hire_date') ?: null,
             'salary'        => (float) $this->input('salary', 0),
             'status'        => $this->input('status', 'Active'),

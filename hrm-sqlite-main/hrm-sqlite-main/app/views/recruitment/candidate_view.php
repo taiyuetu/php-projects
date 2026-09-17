@@ -14,7 +14,7 @@ $stageCnLabels = [
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div>
         <div class="d-flex align-items-center gap-2">
-            <h4 class="mb-0"><?php echo htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']); ?></h4>
+            <h4 class="mb-0"><?php echo htmlspecialchars($candidate['last_name'] . $candidate['first_name']); ?></h4>
             <span class="badge bg-<?php echo $stageMeta['badge']; ?> fs-6 d-inline-flex align-items-center gap-1">
                 <i class="bi <?php echo $stageMeta['icon']; ?>"></i> <?php echo $stageCnLabels[$candidate['stage']] ?? $candidate['stage']; ?>
             </span>

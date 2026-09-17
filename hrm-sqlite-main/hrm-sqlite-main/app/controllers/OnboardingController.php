@@ -15,16 +15,8 @@ class OnboardingController extends Controller
 
     public function index()
     {
-        $records = $this->onboardingModel->allWithDetails();
-        $inProgressCount = 0;
-        $completedCount = 0;
-        foreach ($records as $r) {
-            if ($r['status'] === 'Completed') {
-                $completedCount++;
-            } else {
-                $inProgressCount++;
-            }
-        }
+        $records = $this->onboardingModel->allActive();
+        $inProgressCount = count($records);
 
         $paginated = $this->paginate($records, 10);
 
@@ -34,7 +26,7 @@ class OnboardingController extends Controller
             'pagination'      => $paginated,
             'totalCount'      => count($records),
             'inProgressCount' => $inProgressCount,
-            'completedCount'  => $completedCount,
+            'completedCount'  => 0,
         ]);
     }
 
@@ -46,12 +38,13 @@ class OnboardingController extends Controller
             $firstName = trim((string) $this->input('first_name'));
             $lastName = trim((string) $this->input('last_name'));
             $email = trim((string) $this->input('email'));
-            $phone = trim((string) $this->input('phone'));
+            $phone = trim((string) $this->input('phone')) ?: null;
             $gender = $this->input('gender') ?: null;
             $dob = $this->input('dob') ?: null;
-            $address = trim((string) $this->input('address'));
+            $idNumber = trim((string) $this->input('id_number')) ?: null;
+            $address = trim((string) $this->input('address')) ?: null;
             $departmentId = $this->input('department_id') ?: null;
-            $designation = trim((string) $this->input('designation'));
+            $designation = trim((string) $this->input('designation')) ?: null;
             $hireDate = $this->input('hire_date') ?: date('Y-m-d');
             $salary = (float) $this->input('salary', 0);
             $targetDate = $this->input('target_completion_date') ?: date('Y-m-d', strtotime('+14 days'));
@@ -83,12 +76,13 @@ class OnboardingController extends Controller
                 'first_name'    => $firstName,
                 'last_name'     => $lastName,
                 'email'         => $email,
-                'phone'         => $phone ?: null,
+                'phone'         => $phone,
                 'gender'        => $gender,
                 'dob'           => $dob,
-                'address'       => $address ?: null,
+                'id_number'     => $idNumber,
+                'address'       => $address,
                 'department_id' => $departmentId,
-                'designation'   => $designation ?: null,
+                'designation'   => $designation,
                 'hire_date'     => $hireDate,
                 'salary'        => $salary,
                 'status'        => 'Active',
@@ -144,7 +138,7 @@ class OnboardingController extends Controller
         }
 
         $this->render('onboarding/tasks', [
-            'pageTitle' => '入职清单 - ' . $record['first_name'] . ' ' . $record['last_name'],
+            'pageTitle' => '入职清单 - ' . $record['last_name'] . $record['first_name'],
             'record'    => $record,
         ]);
     }

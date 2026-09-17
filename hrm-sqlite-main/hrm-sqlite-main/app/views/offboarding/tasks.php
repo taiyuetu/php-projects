@@ -15,7 +15,7 @@ $reasonMap = [
     <div>
         <h4 class="mb-1 text-danger"><i class="bi bi-box-arrow-right me-2"></i> 离职交接清单</h4>
         <div class="text-muted">
-            办理员工离职交接手续：<strong><?php echo htmlspecialchars($record['first_name'] . ' ' . $record['last_name']); ?></strong> (<?php echo htmlspecialchars($record['employee_code']); ?>)
+            办理员工离职交接手续：<strong><?php echo htmlspecialchars($record['last_name'] . $record['first_name']); ?></strong> (<?php echo htmlspecialchars($record['employee_code']); ?>)
         </div>
     </div>
     <a href="<?php echo BASE_URL; ?>/offboarding" class="btn btn-outline-secondary btn-sm">
@@ -31,7 +31,7 @@ $reasonMap = [
             <table class="table table-sm table-borderless mb-0">
                 <tr>
                     <td class="text-muted" style="width: 120px;">姓名：</td>
-                    <td class="fw-semibold"><?php echo htmlspecialchars($record['first_name'] . ' ' . $record['last_name']); ?></td>
+                    <td class="fw-semibold"><?php echo htmlspecialchars($record['last_name'] . $record['first_name']); ?></td>
                 </tr>
                 <tr>
                     <td class="text-muted">工号：</td>

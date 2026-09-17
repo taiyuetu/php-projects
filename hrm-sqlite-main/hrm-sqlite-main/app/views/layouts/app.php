@@ -19,6 +19,10 @@
             <?php require __DIR__ . '/../partials/alerts.php'; ?>
             <?php echo $content; ?>
         </main>
+
+        <footer class="text-center text-muted small py-3">
+            <?php echo APP_NAME; ?> v<?php echo APP_VERSION; ?>
+        </footer>
     </div>
 </div>
 

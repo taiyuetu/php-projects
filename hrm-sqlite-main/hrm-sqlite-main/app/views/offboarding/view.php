@@ -13,7 +13,7 @@ $reasonMap = [
     <div>
         <h4 class="mb-1 text-danger"><i class="bi bi-archive me-2"></i> 已离职员工档案记录</h4>
         <div class="text-muted">
-            员工永久离职档案：<strong><?php echo htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']); ?></strong> (<?php echo htmlspecialchars($employee['employee_code']); ?>)
+            员工永久离职档案：<strong><?php echo htmlspecialchars($employee['last_name'] . $employee['first_name']); ?></strong> (<?php echo htmlspecialchars($employee['employee_code']); ?>)
         </div>
     </div>
     <div class="d-flex gap-2">
@@ -43,7 +43,7 @@ $reasonMap = [
                 </tr>
                 <tr>
                     <td class="text-muted">姓名：</td>
-                    <td class="fw-semibold"><?php echo htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']); ?></td>
+                    <td class="fw-semibold"><?php echo htmlspecialchars($employee['last_name'] . $employee['first_name']); ?></td>
                 </tr>
                 <tr>
                     <td class="text-muted">电子邮箱：</td>

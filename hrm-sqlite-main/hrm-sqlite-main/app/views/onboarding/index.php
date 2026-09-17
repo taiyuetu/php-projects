@@ -1,28 +1,10 @@
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
-            <div class="icon bg-primary"><i class="bi bi-person-plus"></i></div>
-            <div>
-                <div class="text-muted small">入职流程总数</div>
-                <div class="fs-4 fw-bold"><?php echo $totalCount; ?></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
             <div class="icon bg-warning"><i class="bi bi-hourglass-split"></i></div>
             <div>
-                <div class="text-muted small">进行中</div>
+                <div class="text-muted small">待办理入职</div>
                 <div class="fs-4 fw-bold"><?php echo $inProgressCount; ?></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card stat-card p-3 d-flex flex-row align-items-center gap-3">
-            <div class="icon bg-success"><i class="bi bi-check2-circle"></i></div>
-            <div>
-                <div class="text-muted small">已完成</div>
-                <div class="fs-4 fw-bold"><?php echo $completedCount; ?></div>
             </div>
         </div>
     </div>
@@ -57,7 +39,7 @@
                 ?>
                     <tr>
                         <td>
-                            <div class="fw-semibold"><?php echo htmlspecialchars($r['first_name'] . ' ' . $r['last_name']); ?></div>
+                            <div class="fw-semibold"><?php echo htmlspecialchars($r['last_name'] . $r['first_name']); ?></div>
                             <div class="text-muted small"><?php echo htmlspecialchars($r['employee_code']); ?> · <?php echo htmlspecialchars($r['email']); ?></div>
                         </td>
                         <td>

@@ -112,7 +112,7 @@ $stageCnLabels = [
                     <tr>
                         <td>
                             <a href="<?php echo BASE_URL; ?>/recruitment/candidate/<?php echo $c['id']; ?>" class="text-decoration-none fw-semibold">
-                                <?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?>
+                                <?php echo htmlspecialchars($c['last_name'] . $c['first_name']); ?>
                             </a>
                             <div class="text-muted small">
                                 <?php echo htmlspecialchars($c['email']); ?>

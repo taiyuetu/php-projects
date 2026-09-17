@@ -24,6 +24,19 @@ class Onboarding extends Model
         return $this->query($sql)->fetchAll();
     }
 
+    public function allActive(): array
+    {
+        $sql = "SELECT o.*, e.employee_code, e.first_name, e.last_name, e.email, e.designation, d.name as department_name,
+                       (SELECT COUNT(*) FROM onboarding_tasks WHERE onboarding_id = o.id) as total_tasks,
+                       (SELECT COUNT(*) FROM onboarding_tasks WHERE onboarding_id = o.id AND is_completed = 1) as completed_tasks
+                FROM onboarding o
+                INNER JOIN employees e ON o.employee_id = e.id
+                LEFT JOIN departments d ON e.department_id = d.id
+                WHERE o.status != 'Completed'
+                ORDER BY CASE o.status WHEN 'In Progress' THEN 1 WHEN 'Pending' THEN 2 ELSE 3 END, o.id DESC";
+        return $this->query($sql)->fetchAll();
+    }
+
     public function findWithTasks(int $id): ?array
     {
         $sql = "SELECT o.*, e.employee_code, e.first_name, e.last_name, e.email, e.phone, e.hire_date, e.designation, d.name as department_name,

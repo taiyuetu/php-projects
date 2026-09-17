@@ -99,7 +99,7 @@ $statusCn = [
                             <tr><td colspan="4" class="text-center text-muted py-3">今日暂无考勤记录。</td></tr>
                         <?php else: foreach ($todayAttendance as $a): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($a['first_name'] . ' ' . $a['last_name']); ?></td>
+                                <td><?php echo htmlspecialchars($a['last_name'] . $a['first_name']); ?></td>
                                 <td><?php echo $a['check_in'] ?? '—'; ?></td>
                                 <td><?php echo $a['check_out'] ?? '—'; ?></td>
                                 <td><span class="badge badge-status-<?php echo str_replace(' ', '.', $a['status']); ?>"><?php echo $statusCn[$a['status']] ?? $a['status']; ?></span></td>
@@ -117,7 +117,7 @@ $statusCn = [
                 <?php foreach ($recentEmployees as $e): ?>
                     <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <div>
-                            <div class="fw-semibold"><?php echo htmlspecialchars($e['first_name'] . ' ' . $e['last_name']); ?></div>
+                            <div class="fw-semibold"><?php echo htmlspecialchars($e['last_name'] . $e['first_name']); ?></div>
                             <div class="text-muted small"><?php echo htmlspecialchars($e['designation'] ?? ''); ?> · <?php echo htmlspecialchars($e['department_name'] ?? '未分配'); ?></div>
                         </div>
                         <span class="badge badge-status-<?php echo $e['status']; ?>"><?php echo $statusCn[$e['status']] ?? $e['status']; ?></span>

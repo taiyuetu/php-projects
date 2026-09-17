@@ -12,7 +12,7 @@
             <div class="alert alert-light border d-flex gap-3 align-items-center mb-4">
                 <div class="fs-2 text-secondary"><i class="bi bi-person-circle"></i></div>
                 <div>
-                    <h5 class="mb-1"><?php echo htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']); ?></h5>
+                    <h5 class="mb-1"><?php echo htmlspecialchars($employee['last_name'] . $employee['first_name']); ?></h5>
                     <div class="text-muted small">
                         <strong>工号：</strong> <?php echo htmlspecialchars($employee['employee_code']); ?> |
                         <strong>部门：</strong> <?php echo htmlspecialchars($employee['department_name'] ?? '未分配'); ?> |

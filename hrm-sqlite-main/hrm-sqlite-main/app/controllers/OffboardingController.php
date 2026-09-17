@@ -75,7 +75,7 @@ class OffboardingController extends Controller
         }
 
         $this->render('offboarding/initiate', [
-            'pageTitle' => '办理离职 - ' . $employee['first_name'] . ' ' . $employee['last_name'],
+            'pageTitle' => '办理离职 - ' . $employee['last_name'] . $employee['first_name'],
             'employee'  => $employee,
         ]);
     }
@@ -89,7 +89,7 @@ class OffboardingController extends Controller
         }
 
         $this->render('offboarding/tasks', [
-            'pageTitle' => '离职清单 - ' . $record['first_name'] . ' ' . $record['last_name'],
+            'pageTitle' => '离职清单 - ' . $record['last_name'] . $record['first_name'],
             'record'    => $record,
         ]);
     }
@@ -163,7 +163,7 @@ class OffboardingController extends Controller
         }
 
         $this->render('offboarding/view', [
-            'pageTitle' => '已离职员工档案 - ' . $employee['first_name'] . ' ' . $employee['last_name'],
+            'pageTitle' => '已离职员工档案 - ' . $employee['last_name'] . $employee['first_name'],
             'employee'  => $employee,
         ]);
     }
@@ -196,5 +196,32 @@ class OffboardingController extends Controller
 
         $this->setFlash('success', '已离职员工记录已永久删除。');
         $this->redirect('offboarding?tab=offboarded');
+    }
+
+    public function rehire($id)
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('offboarding?tab=offboarded');
+        }
+        $this->verifyCsrf();
+
+        $record = $this->offboardedModel->find((int) $id);
+        if (!$record) {
+            $this->setFlash('error', '未找到该已离职员工记录。');
+            $this->redirect('offboarding?tab=offboarded');
+        }
+
+        // Update employee status to Active
+        if (!empty($record['employee_id'])) {
+            $this->employeeModel->update($record['employee_id'], [
+                'status' => 'Active'
+            ]);
+
+            // Delete the archive record from offboarding_employees table
+            $this->offboardedModel->delete((int) $id);
+        }
+
+        $this->setFlash('success', '员工 ' . $record['last_name'] . $record['first_name'] . ' 已成功复职，重新添加到在职员工列表中。');
+        $this->redirect('employee');
     }
 }
