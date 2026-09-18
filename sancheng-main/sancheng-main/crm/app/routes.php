@@ -25,6 +25,8 @@ $router->put('/customers/{id}', 'CustomerController@update');
 $router->delete('/customers/{id}', 'CustomerController@destroy');
 $router->post('/customers/{id}/notes', 'CustomerController@addNote');
 $router->post('/customers/{id}/follow-ups', 'CustomerController@addFollowUp');
+$router->put('/customers/{id}/follow-ups/{followUpId}', 'CustomerController@updateFollowUp');
+$router->delete('/customers/{id}/follow-ups/{followUpId}', 'CustomerController@destroyFollowUp');
 $router->post('/customers/{id}/attachments', 'CustomerController@uploadAttachment');
 $router->post('/customers/{id}/attachments/{attachmentId}/delete', 'CustomerController@deleteAttachment');
 

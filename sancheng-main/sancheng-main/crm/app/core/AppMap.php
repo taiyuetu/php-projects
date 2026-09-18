@@ -348,7 +348,7 @@ class AppMap
                 'title' => '客户 Customer 与跟进 / 动态 / 附件',
                 'steps' => [
                     '客户详情：基本信息 + 商机 + 订单 + 关联线索 + 跟进记录（比价类询价）+ 活动记录 + 附件',
-                    '跟进 follow_ups.type：price_comparison｜no_response｜follow_up｜other，带 next_action/next_date',
+                    '跟进 follow_ups.type：price_comparison｜no_response｜follow_up｜other，带 next_action/next_date；详情页上可增/改/删（PUT/DELETE 由表单 _method 伪造，见 routes.php）',
                     '活动 activities：由「添加备注」写入（type=note，user_id=操作人）',
                     '搜索 /customers?q=：姓名、公司、邮箱、电话、WhatsApp、微信、国家、备注（LIKE 匹配，OR 关系）',
                 ],
@@ -379,7 +379,7 @@ class AppMap
                 'steps' => [
                     '查询（read）：search_records / get_record —— 立即执行、不写库、不需确认，结果写进 ai_actions；可搜索范围是 Ai::searchSurfaces() 白名单：线索/客户/商机/订单/跟进/动态/AI 记录；支持关键词 q 与字段条件 country / status / stage / owner（q 可留空，但至少要给一个条件；用户明确说“所有/全部”时才写 all:true 取整表），并返回精确总数，所以「现在有多少客户」能一句答准',
                     '多轮（先查再删）：Ai::complete() 是一个最多 Ai::MAX_TOOL_ROUNDS=3 轮的循环 —— 模型只要查询动作，服务端就当场执行（只读），把真实编号以 <tool_results> 回灌，模型下一轮再针对这些编号出写/删计划，所以「删除印度所有客户」「删掉名字含 armtek 的客户及其线索/商机/订单」这类指令能成立',
-                    '写入（write）：create_lead / create_customer / create_deal / add_follow_up / update_lead / update_lead_status / update_customer / update_deal / update_deal_stage / update_order —— 预览确认模式下等你点“确认执行”，自动执行模式下直接落库',
+                    '写入（write）：create_lead / create_customer / create_deal / add_follow_up / update_follow_up / update_lead / update_lead_status / update_customer / update_deal / update_deal_stage / update_order —— 预览确认模式下等你点“确认执行”，自动执行模式下直接落库',
                     '删除（delete）：delete_lead / delete_deal / delete_order / delete_customer / delete_ai_request —— 无论哪种模式都必须人工“确认执行”，参数里强制 confirm:true + reason',
                 ],
                 'rules' => [

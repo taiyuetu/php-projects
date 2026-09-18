@@ -204,18 +204,71 @@ class CustomerController extends Controller
             return;
         }
 
-        $title = trim($_POST['title'] ?? '');
-        if ($title !== '') {
-            $this->model('FollowUp')->addFollowUp((int) $id, $_SESSION['user_id'], [
-                'type' => $_POST['type'] ?? 'price_comparison',
-                'title' => $title,
-                'description' => trim($_POST['description'] ?? '') ?: null,
-                'next_action' => trim($_POST['next_action'] ?? '') ?: null,
-                'next_date' => $_POST['next_date'] ?? null,
-            ]);
-            $this->setFlash('success', '跟进记录已添加。');
+        [$data, $errors] = $this->validateFollowUp($_POST);
+        if ($errors) {
+            $this->setFlash('error', implode(' ', $errors));
+            $this->redirect('/customers/' . $id);
+            return;
         }
+
+        $this->model('FollowUp')->addFollowUp((int) $id, (int) $_SESSION['user_id'], $data);
+        $this->setFlash('success', '跟进记录已添加。');
         $this->redirect('/customers/' . $id);
+    }
+
+    /** 更新一条跟进记录（跟进记录的 U 与 D 都只挂在客户详情页上） */
+    public function updateFollowUp(string $customerId, string $followUpId): void
+    {
+        $this->requireAuth();
+        $this->verifyCsrf();
+
+        if (!$this->model('Customer')->find((int) $customerId)) {
+            $this->setFlash('error', '客户不存在。');
+            $this->redirect('/customers');
+            return;
+        }
+
+        $followUpModel = $this->model('FollowUp');
+        if (!$followUpModel->findForCustomer((int) $customerId, (int) $followUpId)) {
+            $this->setFlash('error', '跟进记录不存在。');
+            $this->redirect('/customers/' . $customerId);
+            return;
+        }
+
+        [$data, $errors] = $this->validateFollowUp($_POST);
+        if ($errors) {
+            $this->setFlash('error', implode(' ', $errors));
+            $this->redirect('/customers/' . $customerId);
+            return;
+        }
+
+        $followUpModel->update((int) $followUpId, $data);
+        $this->setFlash('success', '跟进记录已更新。');
+        $this->redirect('/customers/' . $customerId);
+    }
+
+    /** 删除一条跟进记录 */
+    public function destroyFollowUp(string $customerId, string $followUpId): void
+    {
+        $this->requireAuth();
+        $this->verifyCsrf();
+
+        if (!$this->model('Customer')->find((int) $customerId)) {
+            $this->setFlash('error', '客户不存在。');
+            $this->redirect('/customers');
+            return;
+        }
+
+        $followUpModel = $this->model('FollowUp');
+        if (!$followUpModel->findForCustomer((int) $customerId, (int) $followUpId)) {
+            $this->setFlash('error', '跟进记录不存在。');
+            $this->redirect('/customers/' . $customerId);
+            return;
+        }
+
+        $followUpModel->delete((int) $followUpId);
+        $this->setFlash('success', '跟进记录已删除。');
+        $this->redirect('/customers/' . $customerId);
     }
 
     /**
@@ -289,5 +342,12 @@ class CustomerController extends Controller
     {
         // 规则白名单在 Customer::$fields（见 core/Fields.php），控制器只做委托
         return (new Customer())->sanitizeInput($input);
+    }
+
+    /** @return array{0: array, 1: array} [validated data, errors] */
+    private function validateFollowUp(array $input): array
+    {
+        // 规则白名单在 FollowUp::$fields（见 core/Fields.php），控制器只做委托
+        return $this->model('FollowUp')->sanitizeInput($input);
     }
 }

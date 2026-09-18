@@ -494,10 +494,12 @@ function test_csrf_guard_covers_destroy_endpoints_and_logout(): void
         'order_number' => 'ORD-CSRF-0001', 'customer_id' => $cust2,
         'title' => 'CSRF 订单', 'status' => 'pending', 'owner_id' => 1,
     ]);
+    $followUpId = (new FollowUp())->addFollowUp($custId, 1, ['type' => 'other', 'title' => 'CSRF 跟进']);
 
-    withTestServer('csrf', function (TestHttp $http, string $base, string $csrf) use ($custId, $leadId, $dealId, $orderId): void {
-        // 没带 token / 伪造 token：四个 destroy 端点都必须被 419 拦下，而不是默默删除
-        foreach (['/customers/' . $custId, '/leads/' . $leadId, '/deals/' . $dealId, '/orders/' . $orderId] as $url) {
+    withTestServer('csrf', function (TestHttp $http, string $base, string $csrf) use ($custId, $leadId, $dealId, $orderId, $followUpId): void {
+        // 没带 token / 伪造 token：五个 destroy 端点都必须被 419 拦下，而不是默默删除
+        foreach (['/customers/' . $custId, '/leads/' . $leadId, '/deals/' . $dealId, '/orders/' . $orderId,
+                  '/customers/' . $custId . '/follow-ups/' . $followUpId] as $url) {
             $res = $http->post($base . $url, ['_method' => 'DELETE']);
             assertEquals(419, $res['code'], "DELETE {$url} 不带 token → 419");
             assertContains('CSRF', $res['body'], '419 页面说明是 CSRF 校验失败');
@@ -678,6 +680,87 @@ function test_backup_export_and_restore_round_trip_over_http(): void
         assertContains('未收到可用的备份来源', $evil['body'],
             '报的是“来源不可用”，不是服务错误，也不是默默盖掉');
         assertEquals($withExtra - 1, (int) (new Customer())->count(), '它一行数据也没改');
+    });
+}
+
+/**
+ * 客户详情页的跟进记录是完整 CRUD：新增、列表读、编辑（PUT）、删除（DELETE）。
+ * 页面里必须真的出现编辑弹窗与删除表单 —— 只测 Model 会漏掉“按钮忘了接线”这类回归。
+ */
+function test_follow_up_crud_on_the_customer_page(): void
+{
+    (new Customer())->create(['id' => 1, 'name' => '跟进测试客户', 'status' => 'active', 'owner_id' => 1]);
+    (new Customer())->create(['id' => 2, 'name' => '另一个客户', 'status' => 'active', 'owner_id' => 1]);
+
+    withTestServer('followup', function (TestHttp $http, string $base, string $csrf): void {
+        // 1) 新增
+        $http->post($base . '/customers/1/follow-ups', [
+            'csrf_token'  => $csrf,
+            'type'        => 'price_comparison',
+            'title'       => '首次比价',
+            'description' => '客户只问价',
+            'next_action' => '发目录',
+            'next_date'   => '2026-10-01',
+        ]);
+        $rows = (new FollowUp())->byCustomer(1);
+        assertEquals(1, count($rows), '跟进记录已落库');
+        $id = (int) $rows[0]['id'];
+        assertEquals('首次比价', $rows[0]['title']);
+
+        // 2) 读：详情页列表里看得到，且每行都带编辑/删除入口
+        $page = $http->get($base . '/customers/1')['body'];
+        assertContains('首次比价', $page, '详情页列出跟进记录');
+        assertContains('followUpEdit' . $id, $page, '列表带编辑弹窗（按记录 ID 定位）');
+        assertContains('value="PUT"', $page, '编辑弹窗用 PUT');
+        assertContains('value="DELETE"', $page, '删除按钮用 DELETE');
+        // 弹窗必须回填原值，否则用户只是改个标题就把描述/日期清空了
+        assertContains('value="2026-10-01"', $page, '编辑弹窗回填下次跟进日期');
+        assertContains('客户只问价', $page, '编辑弹窗回填描述');
+
+        // 3) 编辑（表单用 _method 伪造 PUT）
+        $http->post($base . '/customers/1/follow-ups/' . $id, [
+            '_method'     => 'PUT',
+            'csrf_token'  => $csrf,
+            'type'        => 'follow_up',
+            'title'       => '已报价，等回复',
+            'description' => '发了 3 个型号的报价',
+            'next_action' => '三天后回访',
+            'next_date'   => '2026-10-05',
+        ]);
+        $row = (new FollowUp())->find($id);
+        assertEquals('已报价，等回复', $row['title'], '标题已更新');
+        assertEquals('follow_up', $row['type'], '类型已更新');
+        assertEquals('2026-10-05', $row['next_date'], '下次跟进日期已更新');
+        $updatedPage = $http->get($base . '/customers/1')['body'];
+        assertContains('已报价，等回复', $updatedPage, '更新后的内容出现在详情页');
+        assertTrue(!str_contains($updatedPage, '首次比价'), '旧标题已消失');
+
+        // 4) 校验：空标题不写库，并给中文提示
+        $before = (int) (new FollowUp())->count();
+        $bad = $http->post($base . '/customers/1/follow-ups', [
+            'csrf_token' => $csrf, 'type' => 'follow_up', 'title' => '   ',
+        ]);
+        assertEquals($before, (int) (new FollowUp())->count(), '空标题不落库');
+        assertContains('跟进标题不能为空', $bad['body'], '空标题给出中文提示');
+
+        // 5) 归属校验：别家客户的跟进记录不能用这个客户的 URL 改/删
+        $other = (new FollowUp())->addFollowUp(2, 1, ['type' => 'other', 'title' => '别家的记录']);
+        $http->post($base . '/customers/1/follow-ups/' . $other, [
+            '_method' => 'PUT', 'csrf_token' => $csrf, 'type' => 'other', 'title' => '越权改名',
+        ]);
+        assertEquals('别家的记录', (new FollowUp())->find($other)['title'], '跨客户编辑被拒绝');
+        $http->post($base . '/customers/1/follow-ups/' . $other, [
+            '_method' => 'DELETE', 'csrf_token' => $csrf,
+        ]);
+        assertTrue((bool) (new FollowUp())->find($other), '跨客户删除被拒绝');
+
+        // 6) 删除自己的记录
+        $http->post($base . '/customers/1/follow-ups/' . $id, [
+            '_method' => 'DELETE', 'csrf_token' => $csrf,
+        ]);
+        assertTrue(!(new FollowUp())->find($id), '自己的跟进记录已删除');
+        assertTrue(!str_contains($http->get($base . '/customers/1')['body'], '已报价，等回复'),
+            '删除后详情页不再显示该记录');
     });
 }
 

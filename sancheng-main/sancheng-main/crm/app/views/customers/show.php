@@ -206,10 +206,9 @@ $relatedId = (int) $customer['id'];
                 <div class="row g-2">
                     <div class="col-md-3">
                         <select name="type" class="form-select form-select-sm">
-                            <option value="price_comparison">比价询价</option>
-                            <option value="no_response">无回复</option>
-                            <option value="follow_up">跟进中</option>
-                            <option value="other">其他</option>
+                            <?php foreach (FollowUp::typeOptions() as $value => $label): ?>
+                                <option value="<?= e($value) ?>"><?= e($label) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-5">
@@ -237,38 +236,103 @@ $relatedId = (int) $customer['id'];
                     <table class="table table-sm table-hover mb-0">
                         <thead>
                             <tr>
-                                <th width="15%">类型</th>
-                                <th width="20%">标题</th>
-                                <th width="30%">描述</th>
-                                <th width="15%">下一步行动</th>
+                                <th width="12%">类型</th>
+                                <th width="16%">标题</th>
+                                <th width="24%">描述</th>
+                                <th width="14%">下一步行动</th>
                                 <th width="10%">下次跟进</th>
-                                <th width="10%">记录时间</th>
+                                <th width="12%">记录时间</th>
+                                <th width="12%" class="text-end">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($followUps as $f): ?>
                                 <tr>
                                     <td>
-                                        <?php
-                                        $typeLabels = [
-                                            'price_comparison' => '<span class="badge bg-warning text-dark">比价询价</span>',
-                                            'no_response' => '<span class="badge bg-secondary">无回复</span>',
-                                            'follow_up' => '<span class="badge bg-info">跟进中</span>',
-                                            'other' => '<span class="badge bg-light text-dark">其他</span>',
-                                        ];
-                                        echo $typeLabels[$f['type']] ?? '<span class="badge bg-light text-dark">未知</span>';
-                                        ?>
+                                        <span class="badge <?= e(FollowUp::typeBadgeClass($f['type'])) ?>">
+                                            <?= e(FollowUp::typeLabel($f['type'])) ?>
+                                        </span>
                                     </td>
                                     <td><?= e($f['title']) ?></td>
                                     <td><small><?= e($f['description'] ?: '—') ?></small></td>
                                     <td><small><?= e($f['next_action'] ?: '—') ?></small></td>
                                     <td><small><?= $f['next_date'] ? formatDate($f['next_date'], 'Y-m-d') : '—' ?></small></td>
                                     <td><small><?= formatDate($f['created_at'], 'm-d H:i') ?></small></td>
+                                    <td class="text-end text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="编辑"
+                                                data-bs-toggle="modal" data-bs-target="#followUpEdit<?= (int) $f['id'] ?>">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <form method="POST" action="<?= url('/customers/' . $customer['id'] . '/follow-ups/' . $f['id']) ?>"
+                                              class="d-inline" onsubmit="return confirm('确定删除此跟进记录？');">
+                                            <input type="hidden" name="_method" value="DELETE">
+                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="删除">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
+
+                <!-- 编辑弹窗：一条记录一个，字段与新增表单同口径 -->
+                <?php foreach ($followUps as $f): ?>
+                    <?php $fNextDate = appDateTime($f['next_date'] ?? ''); ?>
+                    <div class="modal fade" id="followUpEdit<?= (int) $f['id'] ?>" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form method="POST" class="modal-content"
+                                  action="<?= url('/customers/' . $customer['id'] . '/follow-ups/' . $f['id']) ?>">
+                                <input type="hidden" name="_method" value="PUT">
+                                <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+                                <div class="modal-header">
+                                    <h5 class="modal-title"><i class="bi bi-pencil me-1"></i>编辑跟进记录</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label">类型</label>
+                                            <select name="type" class="form-select form-select-sm">
+                                                <?php foreach (FollowUp::typeOptions() as $value => $label): ?>
+                                                    <option value="<?= e($value) ?>" <?= $f['type'] === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">下次跟进日期</label>
+                                            <input type="date" name="next_date" class="form-control form-control-sm"
+                                                   value="<?= e($fNextDate !== '' ? substr($fNextDate, 0, 10) : '') ?>">
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">标题 <span class="text-danger">*</span></label>
+                                            <input type="text" name="title" class="form-control form-control-sm"
+                                                   value="<?= e($f['title']) ?>" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">描述</label>
+                                            <textarea name="description" class="form-control form-control-sm" rows="3"><?= e($f['description'] ?: '') ?></textarea>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">下一步行动</label>
+                                            <input type="text" name="next_action" class="form-control form-control-sm"
+                                                   value="<?= e($f['next_action'] ?: '') ?>">
+                                        </div>
+                                    </div>
+                                    <div class="small text-muted mt-2">
+                                        记录人：<?= e($f['user_name'] ?? '未知') ?> · 创建于 <?= formatDate($f['created_at'], 'Y-m-d H:i') ?>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                                    <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-check-lg"></i> 保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             <?php endif; ?>
         </div>
 
