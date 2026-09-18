@@ -179,11 +179,14 @@ class AiClient
                 'key_required'  => true,
                 // 只列标准 API（按量付费端点）确实在服的模型：glm-5.3 的文本 API 官方标注
                 // “即将上线”，预设里放一个还调不通的 id 等于让管理员一保存就收 400。
-                'models'        => ['glm-5.3-flash', 'glm-4.7-flash', 'glm-5.2'],
+                'models'        => ['glm-5.3-flash', 'glm-4.7-flash', 'glm-5.2', 'glm-4.5-air'],
                 // GLM-5.3 / 5.3-Flash 强制开启思考：官方文档明说 thinking.type 传 disabled 会报错，
                 // 所以快速模式不能像 DeepSeek / MiMo 那样“关掉思考”，改用思考档位开关 reasoning_effort
                 // （low = 轻度思考；默认 max 是深度思考，一句“新建线索”也要想很久）。
                 'fast_params'   => ['reasoning_effort' => 'low'],
+                // 但同一平台的 GLM-4.5-Air 支持真正关掉思考（thinking.type=disabled）：
+                // 选中哪个模型就发哪套参数 —— 见 config() 里的按模型覆盖 model_fast_params。
+                'model_fast_params' => ['glm-4.5-air' => ['thinking' => ['type' => 'disabled']]],
                 // 本功能只接受一个 JSON 对象（{reply,actions}）：json_object 模式由服务端保证
                 // 语法合法，避开“带围栏/带解说的回复解析失败”这一整类报错（与 MiMo 同一处置）。
                 'json_mode'     => true,
@@ -191,7 +194,8 @@ class AiClient
                 // 思考阶段，拿回一个空 content（官方也建议 max_tokens ≥ 1024）。给一个下限。
                 'tokens_floor'  => 2048,
                 'note'          => 'GLM-5.3-Flash 强制开启思考、不能关闭（传 thinking.type=disabled 会报错），'
-                                   . '所以“快速模式”发送的是 reasoning_effort=low（轻度思考）。'
+                                   . '所以“快速模式”发送的是 reasoning_effort=low（轻度思考）；'
+                                   . 'GLM-4.5-Air 则支持关闭思考，快速模式会直接发 thinking.type=disabled。'
                                    . '控制台：bigmodel.cn（建 Key / 看余额）。',
             ],
             'mimo' => [
@@ -265,6 +269,13 @@ class AiClient
         $maxTokens = trim((string) Setting::get('ai_max_tokens', ''));
         $maxTokens = $maxTokens === '' ? 800 : max(0, (int) $maxTokens);
 
+        $model = ($env('AI_MODEL') ?: trim((string) Setting::get('ai_model', ''))) ?: $provider['default_model'];
+        // 思考开关按模型挑：同一个服务商里，GLM-5.3 系列强制思考只能调档（reasoning_effort），
+        // GLM-4.5-Air 则能真关（thinking.type=disabled）。选中的模型在 model_fast_params 里
+        // 登记过就听它的，没登记的模型沿用服务商默认的 fast_params。
+        $modelFast = is_array($provider['model_fast_params'] ?? null)
+            ? ($provider['model_fast_params'][$model] ?? null) : null;
+
         return [
             'enabled'      => (($env('AI_ENABLED') ?? (string) Setting::get('ai_enabled', '0')) === '1'),
             'auto_apply'   => (($env('AI_MODE') ?? (string) Setting::get('ai_mode', 'preview')) === 'auto'),
@@ -272,7 +283,7 @@ class AiClient
             'label'        => $provider['label'],
             'needs_key'    => (bool) $provider['key_required'],
             'base_url'     => $baseUrl,
-            'model'        => ($env('AI_MODEL') ?: trim((string) Setting::get('ai_model', ''))) ?: $provider['default_model'],
+            'model'        => $model,
             'api_key'      => $apiKey,
             'key_from_env' => $env('AI_API_KEY') !== null,
             'temperature'  => (float) ((string) Setting::get('ai_temperature', '0.2') ?: 0.2),
@@ -280,7 +291,8 @@ class AiClient
             'max_tokens'   => $maxTokens,
             // “快速模式”：把思考型模型改成直接作答。关掉思考是本机实测最大的提速来源。
             'fast_mode'    => ($env('AI_FAST_MODE') ?? (string) Setting::get('ai_fast_mode', '1')) !== '0',
-            'fast_params'  => is_array($provider['fast_params'] ?? null) ? $provider['fast_params'] : [],
+            'fast_params'  => is_array($modelFast) ? $modelFast
+                : (is_array($provider['fast_params'] ?? null) ? $provider['fast_params'] : []),
             // 服务商之间的参数名差异都在这几个预设字段里，不在代码里写死域名判断
             'max_tokens_key' => (string) ($provider['max_tokens_key'] ?? 'max_tokens'),
             // 输出长度的下限：强制思考的服务商（智谱 GLM-5.3）思考 token 也算进这个上限，

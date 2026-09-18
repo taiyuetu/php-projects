@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 叁程 CRM (Triphase CRM) 统一数据库迁移入口 (single source of truth for DB setup)
  *
@@ -24,8 +25,13 @@
  *   - 修改"已有表的结构"(加列等) → 新建增量文件，并同步更新 schema.sql，
  *     这样全新数据库与旧数据库最终结构一致（增量文件会因基线已含该列而自动跳过）。
  *
+ * 执行核心在 database/migrator.php（DbMigrator）：Web 端首次访问时的自动建库
+ * 走同一份代码，保证"手动跑脚本"和"网页自动初始化"永远一个口径。
+ *
  * Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
  */
+
+require __DIR__ . '/migrator.php';
 
 // ---------- 参数解析 ----------
 $opts = getopt('', ['db::', 'status', 'help', 'no-demo']);
@@ -49,9 +55,8 @@ TXT;
 }
 
 $baseDir = dirname(__DIR__);          // project root
-$dbDir   = __DIR__;                   // database/
-$schemaFile = __DIR__ . '/schema.sql';
-$migDir  = __DIR__ . '/migrations';
+$schemaFile = DbMigrator::schemaFile();
+$migDir = DbMigrator::migrationsDir();
 
 // ---------- 定位数据库文件 ----------
 if ($dbPath === null) {
@@ -101,96 +106,11 @@ try {
     exit(1);
 }
 
-/** 标识符是否已是数据库中真实存在的列（表不存在时返回 false） */
-function columnExists(PDO $pdo, string $table, string $column): bool
-{
-    // pragma_table_info 的表名可以参数化，无需拼接标识符
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM pragma_table_info(:t) WHERE lower(name) = lower(:c)');
-    $stmt->execute([':t' => $table, ':c' => $column]);
-    return (int) $stmt->fetchColumn() > 0;
-}
-
-/**
- * 解析"纯加列"增量文件。
- *
- * 返回 [[表名, 列名], ...]；若文件除注释/空白/分号外还含其它语句，返回 []，
- * 表示不做跳过判定，交由正常执行流程处理。
- *
- * @return array<int, array{0:string,1:string}>
- */
-function addedColumnsOfPureAddColumnFile(string $sql): array
-{
-    // SQLite 的 ADD COLUMN 子句内不会出现分号，用 [^;]* 截到语句末尾即可
-    $re = '/ALTER\s+TABLE\s+[`"\[]?([A-Za-z_][A-Za-z0-9_$]*)[`"\]]?\s+ADD\s+(?:COLUMN\s+)?[`"\[]?([A-Za-z_][A-Za-z0-9_$]*)[`"\]]?[^;]*/i';
-    if (!preg_match_all($re, $sql, $m, PREG_SET_ORDER)) {
-        return [];
-    }
-    $rest = preg_replace('/--[^\r\n]*/', ' ', $sql); // 去行注释
-    $rest = preg_replace($re, ' ', $rest);           // 移除加列语句本身
-    $rest = trim(preg_replace('/\s+/', ' ', str_replace(';', ' ', (string) $rest)));
-    if ($rest !== '') {
-        return []; // 含其它变更（建表、改 CHECK 等）——不可跳过
-    }
-    $cols = [];
-    foreach ($m as $row) {
-        $cols[] = [$row[1], $row[2]];
-    }
-    return $cols;
-}
-
-/** 整文件执行；尝试包事务；返回抛错前已执行部分的风险由"执行成功才记录"兜底 */
-function execFile(PDO $pdo, string $file, string $label): void
-{
-    $sql = file_get_contents($file);
-    if ($sql === false) {
-        throw new RuntimeException("Cannot read {$file}");
-    }
-    execSql($pdo, $sql, $label);
-}
-
-/** 执行一段 SQL；尝试包事务；返回抛错前已执行部分的风险由"执行成功才记录"兜底 */
-function execSql(PDO $pdo, string $sql, string $label): void
-{
-    // PRAGMA journal_mode / foreign_keys 不能在事务内执行
-    $canTx = stripos($sql, 'journal_mode') === false && stripos($sql, 'PRAGMA ') === false;
-    if ($canTx) {
-        $pdo->exec('BEGIN');
-    }
-    try {
-        $pdo->exec($sql);
-        if ($canTx) {
-            $pdo->exec('COMMIT');
-        }
-    } catch (Throwable $e) {
-        if ($canTx) {
-            try { $pdo->exec('ROLLBACK'); } catch (Throwable $ignored) {}
-        }
-        throw $e;
-    }
-    echo '  applied: ' . $label . PHP_EOL;
-}
-
-// ---------- 迁移记录表 ----------
-$pdo->exec('CREATE TABLE IF NOT EXISTS _migrations (
-    name       TEXT PRIMARY KEY,
-    applied_at TEXT NOT NULL DEFAULT (datetime(\'now\'))
-)');
-
-$getApplied = function (): array {
-    global $pdo;
-    $rows = $pdo->query('SELECT name FROM _migrations')->fetchAll();
-    return array_column($rows, 'name');
-};
-$markApplied = function (string $name) use ($pdo): void {
-    $stmt = $pdo->prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (:n)');
-    $stmt->bindValue(':n', $name);
-    $stmt->execute();
-};
-
 // ---------- --status 模式 ----------
 if ($statusOnly) {
+    DbMigrator::ensureMigrationsTable($pdo);
     echo PHP_EOL . '-- Status --' . PHP_EOL;
-    $applied = $getApplied();
+    $applied = DbMigrator::appliedNames($pdo);
     $files = glob($migDir . '/*.sql') ?: [];
     sort($files);
     echo 'Schema baseline (schema.sql): always re-applied (idempotent)' . PHP_EOL;
@@ -225,7 +145,7 @@ if (array_key_exists('no-demo', $opts)) {
     $demoData = false;
 } else {
     $envDemo = getenv('CRM_DEMO_DATA');
-    if ($envDemo === false || trim($envDemo) === '') {
+    if ($envDemo === false || trim((string) $envDemo) === '') {
         $envFile = $baseDir . '/.env';
         if (is_readable($envFile)) {
             foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
@@ -243,63 +163,18 @@ if (array_key_exists('no-demo', $opts)) {
     }
 }
 
-// ---------- 1) 应用基线 schema.sql (幂等，每次都跑 => 自愈) ----------
-echo PHP_EOL . '== Baseline ==' . PHP_EOL;
-$pdo->exec('PRAGMA foreign_keys = ON');
-$schemaSql = (string) file_get_contents($schemaFile);
-if (!$demoData) {
-    $schemaSql = (string) preg_replace('/-- >>> DEMO_DATA_BEGIN >>>.*?-- >>> DEMO_DATA_END >>>/s', '', $schemaSql);
-    echo '  note: demo sample data skipped (CRM_DEMO_DATA=0 / --no-demo)' . PHP_EOL;
-}
-execSql($pdo, $schemaSql, 'schema.sql (baseline)');
+// ---------- 迁移（核心在 DbMigrator::apply） ----------
+echo PHP_EOL;
+DbMigrator::apply($pdo, $schemaFile, $migDir, $demoData,
+    static function (string $line): void { echo $line . PHP_EOL; });
 
-// ---------- 2) 应用未执行的增量迁移 ----------
-echo '== Incremental migrations ==' . PHP_EOL;
-$applied = $getApplied();
-$files = glob($migDir . '/*.sql') ?: [];
-sort($files);
-$ran = 0;
-$skipped = 0;
-foreach ($files as $file) {
-    $name = basename($file);
-    if (in_array($name, $applied, true)) {
-        continue; // 已执行过
-    }
-    // 基线 schema.sql 是结构的唯一权威来源，且每次运行都会自愈式重放；
-    // 因此"只加列"的增量文件在基线已含该列的数据库上是多余的，跳过即可。
-    $added = addedColumnsOfPureAddColumnFile((string) file_get_contents($file));
-    if ($added) {
-        $missing = [];
-        foreach ($added as [$table, $column]) {
-            if (!columnExists($pdo, $table, $column)) {
-                $missing[] = $table . '.' . $column;
-            }
-        }
-        if (!$missing) {
-            echo '  skipped: ' . $name . ' (column(s) already present in baseline)' . PHP_EOL;
-            $markApplied($name); // 效果已具备，登记以免每次重判
-            $skipped++;
-            continue;
-        }
-    }
-    execFile($pdo, $file, $name);
-    $markApplied($name);
-    $ran++;
-}
-if ($ran === 0 && $skipped === 0) {
-    echo '  nothing pending (migrations/ has no unapplied files)' . PHP_EOL;
-}
-
-// ---------- 3) 自检：期望表是否齐全 ----------
+// ---------- 自检：期望表是否齐全 ----------
 echo '== Verify ==' . PHP_EOL;
-$expected = ['users', 'app_settings', 'customers', 'products', 'leads', 'deals', 'orders', 'order_items', 'follow_ups', 'activities', 'attachments'];
-$actual = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_migrations'")->fetchAll();
-$actualNames = array_column($actual, 'name');
-$missing = array_diff($expected, $actualNames);
+$missing = DbMigrator::missingExpectedTables($pdo);
 if ($missing) {
     fwrite(STDERR, '  Missing tables: ' . implode(', ', $missing) . PHP_EOL);
     echo PHP_EOL . 'Done (with warnings).' . PHP_EOL;
     exit(1);
 }
-echo '  All ' . count($expected) . ' expected tables present. OK' . PHP_EOL;
+echo '  All ' . count(DbMigrator::EXPECTED_TABLES) . ' expected tables present. OK' . PHP_EOL;
 echo PHP_EOL . 'Migration complete.' . PHP_EOL;

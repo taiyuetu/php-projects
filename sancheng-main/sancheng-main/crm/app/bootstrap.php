@@ -34,6 +34,11 @@ require APP_PATH . '/core/Model.php';
 require APP_PATH . '/core/Controller.php';
 require APP_PATH . '/core/Router.php';
 
+// ---- 数据库自动初始化 ----
+// 首次部署/换了新库时不用再手动跑 php database/migrate.php：
+// 结构已就绪时这里只花两条快查询；否则自动执行同一套幂等迁移（见 Database::ensureSchema）。
+Database::ensureSchema();
+
 // ---- Session ----
 session_name(SESSION_NAME);
 if (session_status() !== PHP_SESSION_ACTIVE) {

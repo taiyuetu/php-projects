@@ -100,6 +100,8 @@ Notes:
    ```bash
    php database/migrate.php
    ```
+   - 也可以不跑：首次访问网页时应用会自动建库/补结构（见 `Database::ensureSchema()`），
+     迁移逻辑与 CLI 完全同一份（`database/migrator.php`）；演示数据开关同样看 `CRM_DEMO_DATA`。
    - **Fresh install** → creates `database/crm.sqlite`, all tables, indexes, triggers and seeds:
      - Demo login: `admin@example.com` / `password`
      - 3 sample customers, 2 leads, 2 deals

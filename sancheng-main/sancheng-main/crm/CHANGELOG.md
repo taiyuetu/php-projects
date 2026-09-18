@@ -7,7 +7,30 @@
 
 ---
 
-## [Unreleased] - 单页查看、商品分类主数据、记住登录与后台一键备份
+## [v1.12.0] - 2026-09-18 - 数据库自动初始化、AI 助手接入 GLM-4.5-Air
+
+### Added
+- **数据库自动初始化：首次使用免手动跑 `php database/migrate.php`** —— 新机器上放好代码、
+  建 `.env`、直接访问就能用，不再出现 “no such table” 白屏。
+  - 迁移核心从 `migrate.php` 抽到 **`database/migrator.php`（`DbMigrator`）**：基线 schema.sql
+    幂等重放 + 增量 `_migrations` 台账 + 期望表自检，语义与原脚本完全一致；
+    `migrate.php` 重构为薄 CLI 壳，输出 / 退出码 / `--status` / `--no-demo` 行为不变
+    （`MigrationTest` 全部原样通过）。
+  - Web 端入口 `Database::ensureSchema()`（由 `app/bootstrap.php` 调用）：结构已就绪时
+    只花两条快查询 + 一次目录扫描，零写入；不就绪（新部署 / 换新库 / 代码升级带了新增量）
+    才自动执行同一套迁移。**flock + 双重检查**防多 FPM worker 同时撞空库。
+  - 演示数据开关与 CLI 同一口径：`CRM_DEMO_DATA=0` 不灌样例，管理员账号与系统设置始终会建。
+  - `AutoInitTest` 从子进程真实加载 `app/bootstrap.php` 验证：首访建库、二次请求快速放行、
+    演示开关生效。`DEPLOY.md` 9.2 的 “no such table” 处置同步改写（自动建为主，CLI 兼后手）。
+- **AI 助手接入智谱 GLM-4.5-Air**：`zhipu` 预设模型列表加入 `glm-4.5-air`（默认仍是 glm-5.3-flash，
+  不影响现有部署），`.env.example` 注释同步。
+  - 新增**按模型的快速模式参数** `model_fast_params`：同一平台的思考开关不一样 ——
+    GLM-5.3 系列强制思考只能调档（`reasoning_effort=low`），GLM-4.5-Air 支持**真关思考**
+    （`thinking.type=disabled`）。选中哪个模型就发哪套参数，未登记的模型沿用服务商默认，
+    默认模型行为不被带坏（`AiTest::test_glm_45_air_gets_a_real_thinking_switch` 钉住：
+    选 4.5-air 时请求带 thinking、不带 reasoning_effort；不选时仍发 reasoning_effort=low）。
+
+### 已有改动（本次一并发布）
 > 注：仓库目录更名 `v-1.111.0-叁程AI驱动CRM-sqlite` → `v-1.11.0-叁程AI驱动CRM-sqlite`（纯目录重命名，代码无变化）。
 
 ### Added

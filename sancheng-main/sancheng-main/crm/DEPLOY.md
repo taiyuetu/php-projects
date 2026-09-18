@@ -5,7 +5,7 @@ Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / A
 
 # 叁程 CRM (Triphase CRM) — 生产部署与运维手册
 
-> 适用版本：**1.11.0**（`app/config/config.php` 中的 `APP_VERSION`）
+> 适用版本：**1.12.0**（`app/config/config.php` 中的 `APP_VERSION`）
 > 适用场景：私有化部署给单一公司 / 团队使用（自托管单租户）。
 > 若要做多租户 SaaS / 大并发集群，本文档的容量章节不适用，需要先做架构改造（见第 11 节）。
 
@@ -489,7 +489,7 @@ display_errors = Off
 
 | 症状 | 原因与处理 |
 |---|---|
-| `no such table: xxx` | 数据库没建/没升级：`php database/migrate.php`（幂等自愈，会补缺表缺列） |
+| `no such table: xxx` | 数据库没建/没升级：正常情况下首访会自动建（`Database::ensureSchema()`）；若自动建也失败（如 `database/` 不可写），手动跑 `php database/migrate.php` 看详细报错（幂等自愈，会补缺表缺列） |
 | `duplicate column name` | 某增量文件本应在旧库补列，但列已在 → 通常是文件名/台账错位。查 `php database/migrate.php --status` 与 `database/migrations/` 是否一一对应 |
 | 上传报“超过了服务器限制（最大2MB）” | PHP `upload_max_filesize` 只有 2M，而应用上限 20MB → 按第 5 节调到 ≥ 24M |
 | `database is locked` / 偶发写入失败 | SQLite 单写者；WAL 已开。检查是否有长事务/慢查询，避免多进程同时高频写。见第 11 节容量边界 |

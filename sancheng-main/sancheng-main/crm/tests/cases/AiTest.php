@@ -320,6 +320,37 @@ function test_glm_53_flash_is_wired_without_trying_to_disable_thinking(): void
     aiResetSettings();
 }
 
+/**
+ * 同一个 zhipu 服务商下、另一个模型的思考开关：GLM-4.5-Air 支持真关思考，
+ * 选中它时快速模式必须发 thinking.type=disabled，而不是照挴 GLM-5.3 的 reasoning_effort
+ * （发了轻则被当成未知参数丢弃、重则报错，总之思考照旧，快速模式等于白开）。
+ */
+function test_glm_45_air_gets_a_real_thinking_switch(): void
+{
+    $p = AiClient::providers();
+    assertTrue(in_array('glm-4.5-air', $p['zhipu']['models'], true), 'GLM-4.5-Air 在可选列表里');
+    assertEquals(['thinking' => ['type' => 'disabled']], $p['zhipu']['model_fast_params']['glm-4.5-air'] ?? null,
+        '按模型的快速模式参数登记在 model_fast_params');
+
+    aiUseFakeTransport(['ai_provider' => 'zhipu', 'ai_model' => 'glm-4.5-air',
+                        'ai_fast_mode' => '1', 'ai_max_tokens' => '800']);
+    $cfg = AiClient::config();
+    assertEquals('glm-4.5-air', $cfg['model'], '设置里选的模型生效');
+    assertEquals(['thinking' => ['type' => 'disabled']], $cfg['fast_params'], '快速模式换成 GLM-4.5-Air 自己的关思考参数');
+
+    aiCapturePayload();
+    AiClient::chat([['role' => 'user', 'content' => '新建线索：测试']], $cfg);
+    $seen = aiSeen();
+    assertEquals(['type' => 'disabled'], $seen['thinking'] ?? null, 'thinking.type=disabled 随请求发出');
+    assertEquals(false, array_key_exists('reasoning_effort', $seen), '不发 GLM-5.3 的思考档位参数');
+    assertEquals('glm-4.5-air', $seen['model'] ?? null, '请求里的模型名');
+
+    // 默认模型（glm-5.3-flash）不被带坏：没登记的模型仍用服务商默认的 reasoning_effort
+    aiUseFakeTransport(['ai_provider' => 'zhipu', 'ai_model' => '', 'ai_fast_mode' => '1']);
+    assertEquals(['reasoning_effort' => 'low'], AiClient::config()['fast_params'], '默认模型仍用 reasoning_effort=low');
+    aiResetSettings();
+}
+
 function test_a_missing_https_transport_says_so_instead_of_failing_mysteriously(): void
 {
     $diag = AiClient::diagnostics();
