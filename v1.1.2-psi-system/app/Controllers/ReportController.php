@@ -23,7 +23,7 @@ class ReportController extends Controller
 
         $total = array_sum(array_column($rows, 'total'));
 
-        $this->view('reports/sales', compact('rows', 'total', 'from', 'to') + ['title' => 'Sales Report']);
+        $this->view('reports/sales', compact('rows', 'total', 'from', 'to') + ['title' => '销售报表']);
     }
 
     public function purchaseReport(): void
@@ -41,7 +41,7 @@ class ReportController extends Controller
 
         $total = array_sum(array_column($rows, 'total'));
 
-        $this->view('reports/purchases', compact('rows', 'total', 'from', 'to') + ['title' => 'Purchase Report']);
+        $this->view('reports/purchases', compact('rows', 'total', 'from', 'to') + ['title' => '采购报表']);
     }
 
     public function stockReport(): void
@@ -52,6 +52,6 @@ class ReportController extends Controller
             $totalValue += $p['quantity'] * $p['cost_price'];
         }
 
-        $this->view('reports/stock', ['title' => 'Stock Valuation Report', 'products' => $products, 'totalValue' => $totalValue]);
+        $this->view('reports/stock', ['title' => '库存估值报表', 'products' => $products, 'totalValue' => $totalValue]);
     }
 }

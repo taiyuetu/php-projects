@@ -11,7 +11,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             $this->redirect('/dashboard');
         }
-        $this->view('auth/login', ['title' => 'Login'], layout: null);
+        $this->view('auth/login', ['title' => '登录'], layout: null);
     }
 
     public function login(): void
@@ -25,7 +25,7 @@ class AuthController extends Controller
             $this->redirect('/dashboard');
         }
 
-        $this->flash('error', 'Invalid email or password.');
+        $this->flash('error', '邮箱或密码错误。');
         $this->redirect('/login');
     }
 

@@ -6,10 +6,10 @@ $saleAttrs = json_decode($sale['attributes'] ?? '{}', true) ?: [];
 <div class="card">
     <div style="display:flex;justify-content:space-between;">
         <div>
-            <h2 style="margin-bottom:4px;">Sale #<?= htmlspecialchars($sale['invoice_no']) ?></h2>
-            <p class="text-muted" style="margin-top:0;">Customer: <?= htmlspecialchars($sale['customer_name'] ?? 'Walk-in') ?> · Date: <?= htmlspecialchars($sale['sale_date']) ?></p>
+            <h2 style="margin-bottom:4px;">销售单 #<?= htmlspecialchars($sale['invoice_no']) ?></h2>
+            <p class="text-muted" style="margin-top:0;">Customer: <?= htmlspecialchars($sale['customer_name'] ?? '散客') ?> · Date: <?= htmlspecialchars($sale['sale_date']) ?></p>
         </div>
-        <a href="<?= Router::url('/sales') ?>" class="btn btn-secondary btn-sm">&larr; All Sales</a>
+        <a href="<?= Router::url('/sales') ?>" class="btn btn-secondary btn-sm">&larr; 返回销售列表</a>
     </div>
 
     <?php if (!empty($customFields)): ?>
@@ -42,7 +42,7 @@ $saleAttrs = json_decode($sale['attributes'] ?? '{}', true) ?: [];
 
     <div class="table-wrap" style="margin-top:16px;">
     <table>
-        <thead><tr><th>SKU</th><th>Product</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Subtotal</th></tr></thead>
+        <thead><tr><th>SKU</th><th>商品</th><th class="text-right">数量</th><th class="text-right">单价</th><th class="text-right">小计</th></tr></thead>
         <tbody>
         <?php foreach ($sale['items'] as $item): ?>
             <tr>
@@ -55,7 +55,7 @@ $saleAttrs = json_decode($sale['attributes'] ?? '{}', true) ?: [];
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="4" class="text-right"><strong>Grand Total</strong></td><td class="text-right"><strong>$<?= number_format($sale['total'], 2) ?></strong></td></tr>
+            <tr><td colspan="4" class="text-right"><strong>总计</strong></td><td class="text-right"><strong>$<?= number_format($sale['total'], 2) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

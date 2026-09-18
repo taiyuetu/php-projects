@@ -15,7 +15,7 @@ class CategoryController extends Controller
         $result = Category::filterWithCustomFieldsPaginated($filters, ['name'], 'name', $page);
 
         $this->view('categories/index', [
-            'title'        => 'Categories',
+            'title'        => '分类管理',
             'categories'   => $result['rows'],
             'customFields' => Category::customFields(),
             'filters'      => $filters,
@@ -26,7 +26,7 @@ class CategoryController extends Controller
     public function create(): void
     {
         $this->view('categories/form', [
-            'title'        => 'Add Category',
+            'title'        => '添加分类',
             'category'     => null,
             'customFields' => Category::customFields(),
         ]);
@@ -37,27 +37,27 @@ class CategoryController extends Controller
         $this->verifyCsrf();
         $name = trim($this->input('name'));
         if ($name === '') {
-            $this->flash('error', 'Category name is required.');
+            $this->flash('error', '分类名称不能为空。');
             $this->redirect('/categories/create');
         }
         if (Category::exists('name', $name)) {
-            $this->flash('error', 'A category named "' . htmlspecialchars($name) . '" already exists.');
+            $this->flash('error', '名为 "' . htmlspecialchars($name) . '" 的分类已存在。');
             $this->redirect('/categories/create');
         }
         Category::create([
             'name'       => $name,
             'attributes' => json_encode($this->collectAttributes(), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Category added.');
+        $this->flash('success', '分类添加成功。');
         $this->redirect('/categories');
     }
 
     public function edit(string $id): void
     {
         $category = Category::find($id);
-        if (!$category) { $this->flash('error', 'Category not found.'); $this->redirect('/categories'); }
+        if (!$category) { $this->flash('error', '分类未找到。'); $this->redirect('/categories'); }
         $this->view('categories/form', [
-            'title'        => 'Edit Category',
+            'title'        => '编辑分类',
             'category'     => $category,
             'customFields' => Category::customFields(),
         ]);
@@ -68,21 +68,21 @@ class CategoryController extends Controller
         $this->verifyCsrf();
         $name = trim($this->input('name'));
         if ($name === '') {
-            $this->flash('error', 'Category name is required.');
+            $this->flash('error', '分类名称不能为空。');
             $this->redirect('/categories/' . $id . '/edit');
         }
         if (Category::exists('name', $name, (int)$id)) {
-            $this->flash('error', 'A category named "' . htmlspecialchars($name) . '" already exists.');
+            $this->flash('error', '名为 "' . htmlspecialchars($name) . '" 的分类已存在。');
             $this->redirect('/categories/' . $id . '/edit');
         }
         $category = Category::find($id);
-        if (!$category) { $this->flash('error', 'Category not found.'); $this->redirect('/categories'); }
+        if (!$category) { $this->flash('error', '分类未找到。'); $this->redirect('/categories'); }
         $existingAttrs = Category::parseCustomFields($category['attributes'] ?? '{}');
         Category::update($id, [
             'name'       => $name,
             'attributes' => json_encode($this->collectAttributes($existingAttrs), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Category updated.');
+        $this->flash('success', '分类更新成功。');
         $this->redirect('/categories');
     }
 
@@ -91,7 +91,7 @@ class CategoryController extends Controller
         $this->verifyCsrf();
         Model::raw("DELETE FROM change_logs WHERE table_name = 'categories' AND record_id = ?", [$id]);
         Category::delete($id);
-        $this->flash('success', 'Category deleted.');
+        $this->flash('success', '分类删除成功。');
         $this->redirect('/categories');
     }
 

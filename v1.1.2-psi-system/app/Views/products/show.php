@@ -10,19 +10,19 @@ $customFields = $customFields ?? [];
             <h2 style="margin-bottom:4px;"><?= htmlspecialchars($product['name']) ?></h2>
             <p class="text-muted" style="margin-top:0;">SKU: <?= htmlspecialchars($product['sku']) ?></p>
         </div>
-        <a href="<?= Router::url('/products/' . $product['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">Edit Product</a>
+        <a href="<?= Router::url('/products/' . $product['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">编辑产品</a>
     </div>
 
     <div class="stat-grid" style="margin-top:16px;">
-        <div class="stat-card"><div class="label">Current Stock</div><div class="value"><?= $product['quantity'] ?> <?= htmlspecialchars($product['unit']) ?></div></div>
-        <div class="stat-card"><div class="label">Cost Price</div><div class="value">$<?= number_format($product['cost_price'], 2) ?></div></div>
-        <div class="stat-card"><div class="label">Sale Price</div><div class="value">$<?= number_format($product['sale_price'], 2) ?></div></div>
-        <div class="stat-card"><div class="label">Reorder Level</div><div class="value"><?= $product['reorder_level'] ?></div></div>
+        <div class="stat-card"><div class="label">当前库存</div><div class="value"><?= $product['quantity'] ?> <?= htmlspecialchars($product['unit']) ?></div></div>
+        <div class="stat-card"><div class="label">成本价</div><div class="value">$<?= number_format($product['cost_price'], 2) ?></div></div>
+        <div class="stat-card"><div class="label">销售价</div><div class="value">$<?= number_format($product['sale_price'], 2) ?></div></div>
+        <div class="stat-card"><div class="label">再订货点</div><div class="value"><?= $product['reorder_level'] ?></div></div>
     </div>
 
     <?php if (!empty($customFields)): ?>
     <div style="margin-top:20px;">
-        <h3>Details</h3>
+        <h3>详细信息</h3>
         <table style="max-width:480px;">
             <tbody>
             <?php foreach ($customFields as $key => $def): ?>
@@ -38,7 +38,7 @@ $customFields = $customFields ?? [];
 
     <?php if (!empty($gallery)): ?>
     <div class="product-gallery">
-        <h3>Gallery</h3>
+        <h3>图库</h3>
         <div class="gallery-grid">
             <?php foreach ($gallery as $i => $img): ?>
                 <img src="<?= Router::url('/uploads/products/' . $img) ?>"
@@ -52,20 +52,20 @@ $customFields = $customFields ?? [];
 </div>
 
 <div class="card">
-    <h3>Stock Movement History</h3>
+    <h3>库存变动历史</h3>
     <?php if (empty($transactions)): ?>
-        <p class="empty-state">No stock movements recorded yet.</p>
+        <p class="empty-state">暂无库存变动记录。</p>
     <?php else: ?>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>Date</th><th>Type</th><th>Change</th><th>Balance After</th><th>Reference</th></tr></thead>
+        <thead><tr><th>日期</th><th>类型</th><th>变动</th><th>变动后余额</th><th>参考</th></tr></thead>
         <tbody>
         <?php foreach ($transactions as $t): ?>
             <tr>
                 <td class="text-muted"><?= htmlspecialchars(substr($t['created_at'], 0, 16)) ?></td>
                 <td>
                     <?php $badge = ['purchase' => 'badge-blue', 'sale' => 'badge-green', 'adjustment' => 'badge-amber'][$t['type']] ?? 'badge-gray'; ?>
-                    <span class="badge <?= $badge ?>"><?= htmlspecialchars($t['type']) ?></span>
+                    <span class="badge <?= $badge ?>"><?= ['purchase'=>'采购','sale'=>'销售','adjustment'=>'调整','purchase_arrival'=>'采购到货'][$t['type']] ?? htmlspecialchars($t['type']) ?></span>
                 </td>
                 <td><?= $t['qty_change'] > 0 ? '+' . $t['qty_change'] : $t['qty_change'] ?></td>
                 <td><?= $t['balance_after'] ?></td>

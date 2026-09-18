@@ -1,15 +1,15 @@
 <?php use App\Core\Router; ?>
 <div class="card" style="max-width:700px;">
-    <h2>Import Customers from CSV</h2>
+    <h2>从CSV导入客户</h2>
     <p class="text-muted" style="margin-top:0;">
-        Upload a CSV file to bulk-create or update customers. Only <strong>name</strong> is required.
+        上传CSV文件即可批量创建或更新客户。仅需 <strong>name</strong> 一列为必填。
     </p>
 
     <form method="post" action="<?= Router::url('/customers/import') ?>" enctype="multipart/form-data">
         <?= $this->csrfField() ?>
 
         <div class="form-group">
-            <label>CSV File</label>
+            <label>CSV文件</label>
             <input type="file" name="import_file" accept=".csv,text/csv" required>
         </div>
 
@@ -21,26 +21,26 @@
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Upload &amp; Import</button>
-            <a href="<?= Router::url('/customers') ?>" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">上传并导入</button>
+            <a href="<?= Router::url('/customers') ?>" class="btn btn-secondary">取消</a>
         </div>
     </form>
 
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
-        <h3 style="margin:0 0 8px;">Expected CSV columns</h3>
-        <p class="text-muted" style="margin-top:0;">The first row must be a header. Order doesn't matter, but column names must match (case-insensitive):</p>
+        <h3 style="margin:0 0 8px;">CSV期望的列</h3>
+        <p class="text-muted" style="margin-top:0;">第一行必须是表头。列顺序不限，但列名必须匹配（不区分大小写）：</p>
         <table>
-            <thead><tr><th>Column</th><th>Required</th><th>Notes</th></tr></thead>
+            <thead><tr><th>列名</th><th>是否必填</th><th>备注</th></tr></thead>
             <tbody>
-                <tr><td><code>name</code></td><td>Yes</td><td>Customer name</td></tr>
-                <tr><td><code>phone</code></td><td>No</td><td></td></tr>
-                <tr><td><code>email</code></td><td>No</td><td></td></tr>
-                <tr><td><code>address</code></td><td>No</td><td></td></tr>
+                <tr><td><code>name</code></td><td>是</td><td>客户名称</td></tr>
+                <tr><td><code>phone</code></td><td>否</td><td></td></tr>
+                <tr><td><code>email</code></td><td>否</td><td></td></tr>
+                <tr><td><code>address</code></td><td>否</td><td></td></tr>
             </tbody>
         </table>
 
         <p class="text-muted" style="margin-top:16px;">
-            Tip: use <a href="<?= Router::url('/customers/export') ?>">Export CSV</a> first to get a correctly
+            提示：请先使用 <a href="<?= Router::url('/customers/export') ?>">导出CSV</a> first to get a correctly
             formatted file, then edit it and re-import.
         </p>
     </div>

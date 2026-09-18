@@ -14,7 +14,7 @@ class CustomerController extends Controller
     protected function csvColumns(): array { return ['name', 'phone', 'email', 'address']; }
     protected function csvMatchField(): string { return 'name'; }
     protected function csvBasePath(): string { return '/customers'; }
-    protected function csvEntityLabel(): string { return 'customer'; }
+    protected function csvEntityLabel(): string { return '客户'; }
 
     public function index(): void
     {
@@ -24,7 +24,7 @@ class CustomerController extends Controller
         $result = Customer::filterWithCustomFieldsPaginated($filters, ['name', 'phone', 'email'], 'name', $page);
 
         $this->view('customers/index', [
-            'title'        => 'Customers',
+            'title'        => '客户列表',
             'customers'    => $result['rows'],
             'customFields' => Customer::customFields(),
             'filters'      => $filters,
@@ -35,7 +35,7 @@ class CustomerController extends Controller
     public function create(): void
     {
         $this->view('customers/form', [
-            'title'        => 'Add Customer',
+            'title'        => '添加客户',
             'customer'     => null,
             'customFields' => Customer::customFields(),
         ]);
@@ -51,16 +51,16 @@ class CustomerController extends Controller
             'address'    => trim($this->input('address')),
             'attributes' => json_encode($this->collectAttributes(), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Customer added.');
+        $this->flash('success', '客户添加成功。');
         $this->redirect('/customers');
     }
 
     public function edit(string $id): void
     {
         $customer = Customer::find($id);
-        if (!$customer) { $this->flash('error', 'Customer not found.'); $this->redirect('/customers'); }
+        if (!$customer) { $this->flash('error', '客户未找到。'); $this->redirect('/customers'); }
         $this->view('customers/form', [
-            'title'        => 'Edit Customer',
+            'title'        => '编辑客户',
             'customer'     => $customer,
             'customFields' => Customer::customFields(),
         ]);
@@ -70,7 +70,7 @@ class CustomerController extends Controller
     {
         $this->verifyCsrf();
         $customer = Customer::find($id);
-        if (!$customer) { $this->flash('error', 'Customer not found.'); $this->redirect('/customers'); }
+        if (!$customer) { $this->flash('error', '客户未找到。'); $this->redirect('/customers'); }
         $existingAttrs = Customer::parseCustomFields($customer['attributes'] ?? '{}');
         Customer::update($id, [
             'name'       => trim($this->input('name')),
@@ -79,7 +79,7 @@ class CustomerController extends Controller
             'address'    => trim($this->input('address')),
             'attributes' => json_encode($this->collectAttributes($existingAttrs), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Customer updated.');
+        $this->flash('success', '客户更新成功。');
         $this->redirect('/customers');
     }
 
@@ -89,12 +89,12 @@ class CustomerController extends Controller
         // Check if customer is referenced by any sales
         $saleCount = Model::raw('SELECT COUNT(*) AS cnt FROM sales WHERE customer_id = ?', [$id])[0]['cnt'] ?? 0;
         if ($saleCount > 0) {
-            $this->flash('error', 'Cannot delete this customer because it is referenced by existing sale records.');
+            $this->flash('error', '无法删除此客户，因为它被现有的销售记录引用。');
             $this->redirect('/customers');
         }
         Model::raw("DELETE FROM change_logs WHERE table_name = 'customers' AND record_id = ?", [$id]);
         Customer::delete($id);
-        $this->flash('success', 'Customer deleted.');
+        $this->flash('success', '客户删除成功。');
         $this->redirect('/customers');
     }
 

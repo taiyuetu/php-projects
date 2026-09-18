@@ -4,7 +4,7 @@ $gallery = json_decode($product['gallery'] ?? '[]', true) ?: [];
 $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
 ?>
 <div class="card" style="max-width:700px;">
-    <h2><?= $product ? 'Edit Product' : 'Add Product' ?></h2>
+    <h2><?= $product ? '编辑产品' : '添加产品' ?></h2>
     <form method="post" action="<?= $product ? Router::url('/products/' . $product['id']) : Router::url('/products') ?>" enctype="multipart/form-data">
         <?= $this->csrfField() ?>
         <div class="form-row">
@@ -13,16 +13,16 @@ $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
                 <input type="text" name="sku" required value="<?= htmlspecialchars($product['sku'] ?? '') ?>">
             </div>
             <div class="form-group">
-                <label>Product Name</label>
+                <label>产品名称</label>
                 <input type="text" name="name" required value="<?= htmlspecialchars($product['name'] ?? '') ?>">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
-                <label>Category</label>
+                <label>分类</label>
                 <select name="category_id">
-                    <option value="">— None —</option>
+                    <option value="">— 无 —</option>
                     <?php foreach ($categories as $c): ?>
                         <option value="<?= $c['id'] ?>" <?= (isset($product['category_id']) && $product['category_id'] == $c['id']) ? 'selected' : '' ?>>
                             <?= htmlspecialchars($c['name']) ?>
@@ -31,29 +31,29 @@ $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
                 </select>
             </div>
             <div class="form-group">
-                <label>Unit</label>
+                <label>单位</label>
                 <input type="text" name="unit" value="<?= htmlspecialchars($product['unit'] ?? 'pcs') ?>" placeholder="pcs, box, kg...">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
-                <label>Cost Price</label>
+                <label>成本价</label>
                 <input type="number" step="0.01" min="0" name="cost_price" value="<?= htmlspecialchars($product['cost_price'] ?? '0') ?>">
             </div>
             <div class="form-group">
-                <label>Sale Price</label>
+                <label>销售价</label>
                 <input type="number" step="0.01" min="0" name="sale_price" value="<?= htmlspecialchars($product['sale_price'] ?? '0') ?>">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
-                <label><?= $product ? 'Quantity in Stock' : 'Opening Quantity' ?></label>
+                <label><?= $product ? '库存数量' : '初始数量' ?></label>
                 <input type="number" min="0" name="quantity" value="<?= htmlspecialchars($product['quantity'] ?? '0') ?>">
             </div>
             <div class="form-group">
-                <label>Reorder Level</label>
+                <label>再订货点</label>
                 <input type="number" min="0" name="reorder_level" value="<?= htmlspecialchars($product['reorder_level'] ?? '0') ?>">
             </div>
         </div>
@@ -63,13 +63,13 @@ $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
 
         <!-- Gallery Images -->
         <div class="form-group">
-            <label>Product Gallery</label>
+            <label>产品图库</label>
             <?php if (!empty($gallery)): ?>
             <div class="gallery-preview" id="existingGallery">
                 <?php foreach ($gallery as $img): ?>
                 <div class="gallery-thumb" data-filename="<?= htmlspecialchars($img) ?>">
                     <img src="<?= Router::url('/uploads/products/' . $img) ?>" alt="Gallery image">
-                    <button type="button" class="gallery-remove" title="Remove image">&times;</button>
+                    <button type="button" class="gallery-remove" title="移除图片">&times;</button>
                     <input type="hidden" name="existing_gallery[]" value="<?= htmlspecialchars($img) ?>">
                 </div>
                 <?php endforeach; ?>
@@ -79,16 +79,16 @@ $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
                 <input type="file" name="gallery_images[]" id="galleryInput" multiple accept="image/jpeg,image/png,image/gif,image/webp">
                 <div class="upload-placeholder" id="uploadPlaceholder">
                     <span class="upload-icon">📷</span>
-                    <span>Click or drag images here to upload</span>
-                    <span class="upload-hint">JPG, PNG, GIF, WebP — Max 5MB each</span>
+                    <span>点击或拖拽图片到此处上传</span>
+                    <span class="upload-hint">JPG, PNG, GIF, WebP — 每张最大5MB</span>
                 </div>
                 <div class="upload-preview" id="uploadPreview"></div>
             </div>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save Product</button>
-            <a href="<?= Router::url('/products') ?>" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">保存产品</button>
+            <a href="<?= Router::url('/products') ?>" class="btn btn-secondary">取消</a>
         </div>
     </form>
 </div>

@@ -8,29 +8,29 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
 ?>
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2 style="margin:0;">All Suppliers</h2>
+        <h2 style="margin:0;">所有供应商</h2>
         <div style="display:flex;gap:10px;align-items:center;">
-            <a href="<?= Router::url('/suppliers/import') ?>" class="btn btn-secondary">Import CSV</a>
-            <a href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-secondary">Export CSV</a>
-            <a href="<?= Router::url('/suppliers/create') ?>" class="btn btn-primary">+ Add Supplier</a>
+            <a href="<?= Router::url('/suppliers/import') ?>" class="btn btn-secondary">导入CSV</a>
+            <a href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-secondary">导出CSV</a>
+            <a href="<?= Router::url('/suppliers/create') ?>" class="btn btn-primary">+ 添加供应商</a>
         </div>
     </div>
 
     <form method="get" action="<?= Router::url('/suppliers') ?>" class="filter-form">
-        <input type="search" name="q" placeholder="Search suppliers..." value="<?= htmlspecialchars($filters['q'] ?? '') ?>">
+        <input type="search" name="q" placeholder="搜索供应商..." value="<?= htmlspecialchars($filters['q'] ?? '') ?>">
         <?php include __DIR__ . '/../partials/custom_fields_filters.php'; ?>
-        <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        <button type="submit" class="btn btn-secondary btn-sm">筛选</button>
         <?php if ($hasFilter): ?>
-            <a href="<?= Router::url('/suppliers') ?>" class="btn btn-secondary btn-sm">Clear</a>
+            <a href="<?= Router::url('/suppliers') ?>" class="btn btn-secondary btn-sm">清除</a>
         <?php endif; ?>
     </form>
 
     <?php if (empty($suppliers)): ?>
-        <p class="empty-state"><?= $hasFilter ? 'No suppliers match your filters.' : 'No suppliers yet.' ?></p>
+        <p class="empty-state"><?= $hasFilter ? '没有匹配的供应商。' : '暂无供应商。' ?></p>
     <?php else: ?>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th><?php include __DIR__ . '/../partials/custom_fields_headers.php'; ?><th></th></tr></thead>
+        <thead><tr><th>名称</th><th>电话</th><th>邮箱</th><th>地址</th><?php include __DIR__ . '/../partials/custom_fields_headers.php'; ?><th></th></tr></thead>
         <tbody>
         <?php foreach ($suppliers as $s): ?>
             <?php $attrs = json_decode($s['attributes'] ?? '{}', true) ?: []; ?>
@@ -41,7 +41,7 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
                 <td class="text-muted"><?= htmlspecialchars($s['address'] ?? '') ?></td>
                 <?php include __DIR__ . '/../partials/custom_fields_cells.php'; ?>
                 <td class="actions">
-                    <a href="<?= Router::url('/suppliers/' . $s['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">Edit</a>
+                    <a href="<?= Router::url('/suppliers/' . $s['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">编辑</a>
                     <?php $deleteUrl = Router::url('/suppliers/' . $s['id'] . '/delete'); include __DIR__ . '/../partials/delete_button.php'; ?>
                 </td>
             </tr>

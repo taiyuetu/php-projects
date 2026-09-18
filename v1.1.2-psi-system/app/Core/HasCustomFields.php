@@ -57,7 +57,7 @@ trait HasCustomFields
             if (!empty($def['required']) && $type !== 'upload') {
                 $v = $values[$key] ?? '';
                 if (is_string($v) && trim($v) === '') {
-                    $errors[] = "{$label} is required.";
+                    $errors[] = "{$label} 为必填项。";
                 }
             }
 
@@ -85,7 +85,7 @@ trait HasCustomFields
                     $hasUpload = !empty($_FILES['cf_' . $key]) && $_FILES['cf_' . $key]['error'] === UPLOAD_ERR_OK;
                     $deleting = !empty($_POST['cf_' . $key . '_delete']);
                     if (!$hasExisting && !$hasUpload && !$deleting) {
-                        $errors[] = ($def['label'] ?? $key) . ' is required.';
+                        $errors[] = ($def['label'] ?? $key) . ' 为必填项。';
                     }
                 }
             }

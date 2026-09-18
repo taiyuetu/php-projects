@@ -1,26 +1,26 @@
 <?php use App\Core\Router; ?>
 <div class="card">
-    <h2>Purchase Report</h2>
+    <h2>采购报表</h2>
     <form method="get" action="<?= Router::url('/reports/purchases') ?>" class="form-row" style="align-items:end;">
         <div class="form-group">
-            <label>From</label>
+            <label>开始日期</label>
             <input type="date" name="from" value="<?= htmlspecialchars($from) ?>">
         </div>
         <div class="form-group">
-            <label>To</label>
+            <label>结束日期</label>
             <input type="date" name="to" value="<?= htmlspecialchars($to) ?>">
         </div>
         <div class="form-group">
-            <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="submit" class="btn btn-primary">筛选</button>
         </div>
     </form>
 
     <?php if (empty($rows)): ?>
-        <p class="empty-state">No purchases in this date range.</p>
+        <p class="empty-state">该日期范围内没有采购记录。</p>
     <?php else: ?>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>Invoice #</th><th>Date</th><th>Supplier</th><th class="text-right">Total</th></tr></thead>
+        <thead><tr><th>发票号</th><th>日期</th><th>供应商</th><th class="text-right">总计</th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
             <tr>
@@ -32,7 +32,7 @@
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="3" class="text-right"><strong>Total</strong></td><td class="text-right"><strong>$<?= number_format($total, 2) ?></strong></td></tr>
+            <tr><td colspan="3" class="text-right"><strong>总计</strong></td><td class="text-right"><strong>$<?= number_format($total, 2) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

@@ -24,7 +24,7 @@ class PurchaseController extends Controller
         $result = Purchase::filterPaginated($q, $dateFrom, $dateTo, $page, 20, $cfFilters);
 
         $this->view('purchases/index', [
-            'title'        => 'Purchases',
+            'title'        => '采购订单',
             'purchases'    => $result['rows'],
             'q'            => $q,
             'date_from'    => $dateFrom,
@@ -38,7 +38,7 @@ class PurchaseController extends Controller
     public function create(): void
     {
         $this->view('purchases/form', [
-            'title'        => 'New Purchase',
+            'title'        => '新建采购',
             'suppliers'    => Supplier::all('name'),
             'products'     => Product::all('name'),
             'nextInvoice'  => 'PO-' . date('Ymd') . '-' . str_pad((string)(Purchase::count() + 1), 4, '0', STR_PAD_LEFT),
@@ -62,11 +62,11 @@ class PurchaseController extends Controller
             $unitCost = (float) ($costs[$i] ?? 0);
 
             if ($qty <= 0) {
-                $this->flash('error', 'Purchase line quantities must be greater than 0.');
+                $this->flash('error', '采购行数量必须大于0。');
                 $this->redirect('/purchases/create');
             }
             if ($unitCost < 0) {
-                $this->flash('error', 'Purchase line costs cannot be negative.');
+                $this->flash('error', '采购行成本不能为负数。');
                 $this->redirect('/purchases/create');
             }
 
@@ -78,7 +78,7 @@ class PurchaseController extends Controller
         }
 
         if (empty($items)) {
-            $this->flash('error', 'Add at least one product line before saving.');
+            $this->flash('error', '保存前至少添加一个产品行。');
             $this->redirect('/purchases/create');
         }
 
@@ -100,10 +100,10 @@ class PurchaseController extends Controller
 
         try {
             $id = Purchase::createWithItems($header, $items);
-            $this->flash('success', 'Purchase recorded. Please confirm arrival to update stock.');
+            $this->flash('success', '采购记录已保存。请确认到货以更新库存。');
             $this->redirect('/purchases/' . $id);
         } catch (\Throwable $e) {
-            $this->flash('error', 'Could not save purchase: ' . $e->getMessage());
+            $this->flash('error', '无法保存采购: ' . $e->getMessage());
             $this->redirect('/purchases/create');
         }
     }
@@ -111,10 +111,10 @@ class PurchaseController extends Controller
     public function show(string $id): void
     {
         $purchase = Purchase::withItems((int) $id);
-        if (!$purchase) { $this->flash('error', 'Purchase not found.'); $this->redirect('/purchases'); }
+        if (!$purchase) { $this->flash('error', '采购未找到。'); $this->redirect('/purchases'); }
 
         $this->view('purchases/show', [
-            'title'        => 'Purchase #' . $purchase['invoice_no'],
+            'title'        => '采购 #' . $purchase['invoice_no'],
             'purchase'     => $purchase,
             'customFields' => Purchase::customFields(),
         ]);
@@ -126,7 +126,7 @@ class PurchaseController extends Controller
 
         $purchase = Purchase::find((int) $id);
         if (!$purchase) {
-            $this->flash('error', 'Purchase not found.');
+            $this->flash('error', '采购单未找到。');
             $this->redirect('/purchases');
         }
 
@@ -135,27 +135,27 @@ class PurchaseController extends Controller
         $notes = trim($this->input('notes', ''));
 
         if ($qty <= 0) {
-            $this->flash('error', 'Arrival qty must be greater than 0.');
+            $this->flash('error', '到货数量必须大于0。');
             $this->redirect('/purchases/' . $id);
         }
 
         // Validate against remaining ordered qty
         $remaining = PurchaseArrival::remainingQty((int) $id);
         if ($remaining <= 0) {
-            $this->flash('error', 'This purchase order is already fully arrived.');
+            $this->flash('error', '该采购单已全部到货。');
             $this->redirect('/purchases/' . $id);
         }
         if ($qty > $remaining) {
-            $this->flash('error', "Arrival qty ({$qty}) exceeds remaining ordered qty ({$remaining}). Maximum allowed is {$remaining} units.");
+            $this->flash('error', "到货数量 ({$qty}) 超过剩余订购数量 ({$remaining})。最多只能登记 {$remaining} 件。");
             $this->redirect('/purchases/' . $id);
         }
 
         try {
             PurchaseArrival::recordArrival((int) $id, $arrivalDate, $qty, $notes);
-            $this->flash('success', 'Arrival recorded! Stock updated by ' . $qty . ' units.');
+            $this->flash('success', '到货登记成功！库存已增加 ' . $qty . ' 件。');
             $this->redirect('/purchases/' . $id);
         } catch (\Throwable $e) {
-            $this->flash('error', 'Could not record arrival: ' . $e->getMessage());
+            $this->flash('error', '无法登记到货：' . $e->getMessage());
             $this->redirect('/purchases/' . $id);
         }
     }

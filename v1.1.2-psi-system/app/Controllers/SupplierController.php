@@ -14,7 +14,7 @@ class SupplierController extends Controller
     protected function csvColumns(): array { return ['name', 'phone', 'email', 'address']; }
     protected function csvMatchField(): string { return 'name'; }
     protected function csvBasePath(): string { return '/suppliers'; }
-    protected function csvEntityLabel(): string { return 'supplier'; }
+    protected function csvEntityLabel(): string { return '供应商'; }
 
     public function index(): void
     {
@@ -24,7 +24,7 @@ class SupplierController extends Controller
         $result = Supplier::filterWithCustomFieldsPaginated($filters, ['name', 'phone', 'email'], 'name', $page);
 
         $this->view('suppliers/index', [
-            'title'        => 'Suppliers',
+            'title'        => '供应商管理',
             'suppliers'    => $result['rows'],
             'customFields' => Supplier::customFields(),
             'filters'      => $filters,
@@ -35,7 +35,7 @@ class SupplierController extends Controller
     public function create(): void
     {
         $this->view('suppliers/form', [
-            'title'        => 'Add Supplier',
+            'title'        => '添加供应商',
             'supplier'     => null,
             'customFields' => Supplier::customFields(),
         ]);
@@ -51,16 +51,16 @@ class SupplierController extends Controller
             'address'    => trim($this->input('address')),
             'attributes' => json_encode($this->collectAttributes(), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Supplier added.');
+        $this->flash('success', '供应商添加成功。');
         $this->redirect('/suppliers');
     }
 
     public function edit(string $id): void
     {
         $supplier = Supplier::find($id);
-        if (!$supplier) { $this->flash('error', 'Supplier not found.'); $this->redirect('/suppliers'); }
+        if (!$supplier) { $this->flash('error', '供应商未找到。'); $this->redirect('/suppliers'); }
         $this->view('suppliers/form', [
-            'title'        => 'Edit Supplier',
+            'title'        => '编辑供应商',
             'supplier'     => $supplier,
             'customFields' => Supplier::customFields(),
         ]);
@@ -70,7 +70,7 @@ class SupplierController extends Controller
     {
         $this->verifyCsrf();
         $supplier = Supplier::find($id);
-        if (!$supplier) { $this->flash('error', 'Supplier not found.'); $this->redirect('/suppliers'); }
+        if (!$supplier) { $this->flash('error', '供应商未找到。'); $this->redirect('/suppliers'); }
         $existingAttrs = Supplier::parseCustomFields($supplier['attributes'] ?? '{}');
         Supplier::update($id, [
             'name'       => trim($this->input('name')),
@@ -79,7 +79,7 @@ class SupplierController extends Controller
             'address'    => trim($this->input('address')),
             'attributes' => json_encode($this->collectAttributes($existingAttrs), JSON_UNESCAPED_UNICODE),
         ]);
-        $this->flash('success', 'Supplier updated.');
+        $this->flash('success', '供应商更新成功。');
         $this->redirect('/suppliers');
     }
 
@@ -89,12 +89,12 @@ class SupplierController extends Controller
         // Check if supplier is referenced by any purchases
         $purchaseCount = Model::raw('SELECT COUNT(*) AS cnt FROM purchases WHERE supplier_id = ?', [$id])[0]['cnt'] ?? 0;
         if ($purchaseCount > 0) {
-            $this->flash('error', 'Cannot delete this supplier because it is referenced by existing purchase records.');
+            $this->flash('error', '无法删除此供应商，因为它被现有的采购记录引用。');
             $this->redirect('/suppliers');
         }
         Model::raw("DELETE FROM change_logs WHERE table_name = 'suppliers' AND record_id = ?", [$id]);
         Supplier::delete($id);
-        $this->flash('success', 'Supplier deleted.');
+        $this->flash('success', '供应商删除成功。');
         $this->redirect('/suppliers');
     }
 

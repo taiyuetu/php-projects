@@ -72,7 +72,7 @@ trait CsvImportExport
     public function importForm(): void
     {
         $slug = trim($this->csvBasePath(), '/');
-        $this->view($slug . '/import', ['title' => 'Import ' . ucfirst($slug)]);
+        $this->view($slug . '/import', ['title' => '批量导入']);
     }
 
     public function importCsv(): void
@@ -83,7 +83,7 @@ trait CsvImportExport
         $importPath = $basePath . '/import';
 
         if (empty($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
-            $this->flash('error', 'Please choose a CSV file to import.');
+            $this->flash('error', '请选择要导入的CSV文件。');
             $this->redirect($importPath);
         }
 
@@ -92,14 +92,14 @@ trait CsvImportExport
 
         $handle = @fopen($tmpName, 'r');
         if (!$handle) {
-            $this->flash('error', 'Could not read the uploaded file.');
+            $this->flash('error', '无法读取上传的文件。');
             $this->redirect($importPath);
         }
 
         $header = fgetcsv($handle);
         if ($header === false) {
             fclose($handle);
-            $this->flash('error', 'The CSV file is empty.');
+            $this->flash('error', 'CSV文件为空。');
             $this->redirect($importPath);
         }
 
@@ -112,7 +112,7 @@ trait CsvImportExport
         $matchField = $this->csvMatchField();
         if (!isset($map[$matchField])) {
             fclose($handle);
-            $this->flash('error', 'CSV is missing required column: "' . $matchField . '". Expected: ' . implode(', ', $this->csvColumns()) . '.');
+            $this->flash('error', 'CSV缺少必需列："' . $matchField . '"。期望的列：' . implode(', ', $this->csvColumns()) . '.');
             $this->redirect($importPath);
         }
 
@@ -161,7 +161,7 @@ trait CsvImportExport
             $matchValue = $data[$matchField] ?? '';
             if ($matchValue === '') {
                 $skipped++;
-                $errors[] = "Row {$rowNum}: missing {$matchField}.";
+                $errors[] = "第 {$rowNum} 行：缺少 {$matchField}。";
                 continue;
             }
 
@@ -169,7 +169,7 @@ trait CsvImportExport
             if ($existing) {
                 if (!$updateExisting) {
                     $skipped++;
-                    $errors[] = "Row {$rowNum}: {$this->csvEntityLabel()} \"{$matchValue}\" already exists (skipped).";
+                    $errors[] = "第 {$rowNum} 行：{$this->csvEntityLabel()} \"{$matchValue}\" 已存在（已跳过）。";
                     continue;
                 }
                 if (!empty($customFields)) {
@@ -188,11 +188,11 @@ trait CsvImportExport
         fclose($handle);
 
         $parts = [];
-        if ($imported > 0) $parts[] = "{$imported} imported";
-        if ($updated > 0)  $parts[] = "{$updated} updated";
-        if ($skipped > 0)  $parts[] = "{$skipped} skipped";
+        if ($imported > 0) $parts[] = "导入 {$imported} 条";
+        if ($updated > 0)  $parts[] = "更新 {$updated} 条";
+        if ($skipped > 0)  $parts[] = "跳过 {$skipped} 条";
 
-        $this->flash('success', 'CSV import complete: ' . (implode(', ', $parts) ?: 'no changes') . '.');
+        $this->flash('success', 'CSV导入完成：' . (implode(', ', $parts) ?: '无更改') . '。');
 
         if (!empty($errors)) {
             $this->flash('error', implode(' ', array_slice($errors, 0, 5)) . (count($errors) > 5 ? ' …' : ''));

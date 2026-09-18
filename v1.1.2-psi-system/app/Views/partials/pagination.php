@@ -34,7 +34,7 @@ $from = ($currentPage - 1) * $perPage + 1;
 $to   = min($currentPage * $perPage, $total);
 ?>
 <div class="pagination-wrap">
-    <span class="pagination-info">Showing <?= $from ?>–<?= $to ?> of <?= $total ?></span>
+    <span class="pagination-info">显示第 <?= $from ?>–<?= $to ?> 条，共 <?= $total ?> 条</span>
     <div class="pagination">
         <?php if ($currentPage > 1): ?>
             <a href="<?= $baseUrl ?>page=<?= $currentPage - 1 ?>" class="page-link">&laquo;</a>

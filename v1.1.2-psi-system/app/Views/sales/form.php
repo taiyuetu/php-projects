@@ -78,71 +78,71 @@ $attrs = [];
 </style>
 
 <div class="card">
-    <h2>New Sale</h2>
+    <h2>新建销售</h2>
     <form method="post" action="<?= Router::url('/sales') ?>" id="sale-form">
         <?= $this->csrfField() ?>
 
         <div class="form-row">
             <div class="form-group">
-                <label>Invoice Number</label>
+                <label>发票号</label>
                 <input type="text" name="invoice_no" required value="<?= htmlspecialchars($nextInvoice) ?>">
             </div>
             <div class="form-group">
-                <label>Customer</label>
+                <label>客户</label>
                 <select name="customer_id">
-                    <option value="">Walk-in Customer</option>
+                    <option value="">散客</option>
                     <?php foreach ($customers as $c): ?>
                         <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="form-group">
-                <label>Sale Date</label>
+                <label>销售日期</label>
                 <input type="date" name="sale_date" value="<?= date('Y-m-d') ?>" required>
             </div>
         </div>
 
-        <h3>Add Item</h3>
+        <h3>添加商品</h3>
         <div class="add-item-area">
             <div class="add-item-row">
                 <div class="autocomplete-wrap">
-                    <input type="text" id="product-search" placeholder="Search by name or SKU…" autocomplete="off">
+                    <input type="text" id="product-search" placeholder="按名称或SKU搜索…" autocomplete="off">
                     <div class="autocomplete-list" id="ac-list"></div>
                 </div>
                 <div class="form-group">
-                    <input type="number" id="add-qty" min="1" value="1" placeholder="Qty" style="width:80px;">
+                    <input type="number" id="add-qty" min="1" value="1" placeholder="数量" style="width:80px;">
                 </div>
                 <div class="form-group">
-                    <input type="number" id="add-price" min="0" step="0.01" value="0" placeholder="Unit Price" style="width:110px;">
+                    <input type="number" id="add-price" min="0" step="0.01" value="0" placeholder="单价" style="width:110px;">
                 </div>
-                <button type="button" class="btn btn-primary btn-sm" id="add-item-btn">Add</button>
+                <button type="button" class="btn btn-primary btn-sm" id="add-item-btn">添加</button>
             </div>
             <select id="product-select" class="add-item-select" style="margin-top:8px;">
-                <option value="">— or select from list —</option>
+                <option value="">— 或从列表选择 —</option>
             </select>
         </div>
 
-        <h3>Items</h3>
+        <h3>商品</h3>
         <div class="table-wrap">
         <table class="line-items" id="items-table">
             <thead>
-                <tr><th style="width:35%;">Product</th><th>Available</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr>
+                <tr><th style="width:35%;">商品</th><th>可用库存</th><th>数量</th><th>单价</th><th>小计</th><th></th></tr>
             </thead>
             <tbody id="items-body"></tbody>
         </table>
         </div>
-        <p id="no-items-msg" style="color:#9ca3af;font-size:.9rem;margin-top:8px;">No items added yet. Search and add products above.</p>
+        <p id="no-items-msg" style="color:#9ca3af;font-size:.9rem;margin-top:8px;">尚未添加商品。请在上方搜索并添加商品。</p>
 
         <div style="text-align:right;margin-top:16px;font-size:1.1rem;">
-            <strong>Grand Total: $<span id="grand-total">0.00</span></strong>
+            <strong>总计: $<span id="grand-total">0.00</span></strong>
         </div>
 
         <!-- Custom fields -->
         <?php include __DIR__ . '/../partials/custom_fields_form.php'; ?>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save Sale</button>
-            <a href="<?= Router::url('/sales') ?>" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">保存销售</button>
+            <a href="<?= Router::url('/sales') ?>" class="btn btn-secondary">取消</a>
         </div>
     </form>
 </div>
@@ -201,7 +201,7 @@ searchInput.addEventListener('input', () => {
     ).slice(0, 20);
 
     if (matches.length === 0) {
-        acList.innerHTML = '<div class="ac-empty">No products found</div>';
+        acList.innerHTML = '<div class="ac-empty">未找到产品</div>';
         acList.style.display = 'block';
         acIndex = -1;
         return;
@@ -210,7 +210,7 @@ searchInput.addEventListener('input', () => {
     acList.innerHTML = matches.map((p, i) =>
         `<div class="ac-item" data-idx="${i}" data-id="${p.id}">
             ${escHtml(p.name)}<span class="ac-sku">[${escHtml(p.sku)}]</span>
-            <span class="ac-stock">Stock: ${p.stock}</span>
+            <span class="ac-stock">库存: ${p.stock}</span>
         </div>`
     ).join('');
     acList.style.display = 'block';
@@ -322,7 +322,7 @@ function addRow(product, qty, price) {
         <td><input type="number" name="qty[]" min="1" max="${product.stock}" value="${qty}" class="qty-input" required></td>
         <td><input type="number" name="unit_price[]" min="0" step="0.01" value="${price.toFixed(2)}" class="price-input" required></td>
         <td class="line-subtotal">$${(qty * price).toFixed(2)}</td>
-        <td><span class="remove-row" title="Remove item">&times;</span></td>
+        <td><span class="remove-row" title="移除商品">&times;</span></td>
     `;
     body.appendChild(row);
     attachRowEvents(row);

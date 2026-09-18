@@ -23,7 +23,7 @@ class SaleController extends Controller
         $result = Sale::filterPaginated($q, $dateFrom, $dateTo, $page, 20, $cfFilters);
 
         $this->view('sales/index', [
-            'title'        => 'Sales',
+            'title'        => '销售发票',
             'sales'        => $result['rows'],
             'q'            => $q,
             'date_from'    => $dateFrom,
@@ -37,7 +37,7 @@ class SaleController extends Controller
     public function create(): void
     {
         $this->view('sales/form', [
-            'title'        => 'New Sale',
+            'title'        => '新建销售',
             'customers'    => Customer::all('name'),
             'products'     => Product::allWithCategory(),
             'nextInvoice'  => 'INV-' . date('Ymd') . '-' . str_pad((string)(Sale::count() + 1), 4, '0', STR_PAD_LEFT),
@@ -61,11 +61,11 @@ class SaleController extends Controller
             $unitPrice = (float) ($prices[$i] ?? 0);
 
             if ($qty <= 0) {
-                $this->flash('error', 'Sale line quantities must be greater than 0.');
+                $this->flash('error', '销售行数量必须大于0。');
                 $this->redirect('/sales/create');
             }
             if ($unitPrice < 0) {
-                $this->flash('error', 'Sale line prices cannot be negative.');
+                $this->flash('error', '销售行价格不能为负数。');
                 $this->redirect('/sales/create');
             }
 
@@ -77,7 +77,7 @@ class SaleController extends Controller
         }
 
         if (empty($items)) {
-            $this->flash('error', 'Add at least one product line before saving.');
+            $this->flash('error', '保存前至少添加一个产品行。');
             $this->redirect('/sales/create');
         }
 
@@ -95,10 +95,10 @@ class SaleController extends Controller
 
         try {
             $id = Sale::createWithItems($header, $items);
-            $this->flash('success', 'Sale recorded and stock updated.');
+            $this->flash('success', '销售记录已保存，库存已更新。');
             $this->redirect('/sales/' . $id);
         } catch (\Throwable $e) {
-            $this->flash('error', 'Could not save sale: ' . $e->getMessage());
+            $this->flash('error', '无法保存销售: ' . $e->getMessage());
             $this->redirect('/sales/create');
         }
     }
@@ -106,10 +106,10 @@ class SaleController extends Controller
     public function show(string $id): void
     {
         $sale = Sale::withItems((int) $id);
-        if (!$sale) { $this->flash('error', 'Sale not found.'); $this->redirect('/sales'); }
+        if (!$sale) { $this->flash('error', '销售未找到。'); $this->redirect('/sales'); }
 
         $this->view('sales/show', [
-            'title'        => 'Sale #' . $sale['invoice_no'],
+            'title'        => '销售 #' . $sale['invoice_no'],
             'sale'         => $sale,
             'customFields' => Sale::customFields(),
         ]);

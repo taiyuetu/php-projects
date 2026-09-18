@@ -27,7 +27,7 @@ class DashboardController extends Controller
         $recentTransactions = InventoryTransaction::recent(10);
 
         $this->view('dashboard/index', [
-            'title'              => 'Dashboard',
+            'title'              => '仪表盘',
             'appVersion'         => $config['app_version'] ?? '',
             'totalProducts'      => $totalProducts,
             'lowStock'           => $lowStock,

@@ -1,6 +1,6 @@
 <?php if (!empty($customFields)): ?>
 <div class="form-group">
-    <label>Details</label>
+    <label>详细信息</label>
     <div class="form-row">
         <?php foreach ($customFields as $key => $def): ?>
             <?php $type = $def['type'] ?? 'text'; ?>

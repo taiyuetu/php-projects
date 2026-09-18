@@ -38,7 +38,7 @@ class ProductController extends Controller
         $result = Product::filterPaginated($filters, $page, $perPage);
 
         $this->view('products/index', [
-            'title'        => 'Products',
+            'title'        => '产品列表',
             'products'     => $result['rows'],
             'categories'   => Category::all('name'),
             'customFields' => Product::customFields(),
@@ -50,7 +50,7 @@ class ProductController extends Controller
     public function create(): void
     {
         $this->view('products/form', [
-            'title'        => 'Add Product',
+            'title'        => '添加产品',
             'product'      => null,
             'categories'   => Category::all('name'),
             'customFields' => Product::customFields(),
@@ -63,11 +63,11 @@ class ProductController extends Controller
         $data = $this->productData();
 
         if ($data['sku'] === '' || $data['name'] === '') {
-            $this->flash('error', 'SKU and product name are required.');
+            $this->flash('error', 'SKU和产品名称为必填项。');
             $this->redirect('/products/create');
         }
         if (Product::exists('sku', $data['sku'])) {
-            $this->flash('error', 'A product with SKU "' . htmlspecialchars($data['sku']) . '" already exists.');
+            $this->flash('error', 'SKU为 "' . htmlspecialchars($data['sku']) . '" 的产品已存在。');
             $this->redirect('/products/create');
         }
 
@@ -80,21 +80,21 @@ class ProductController extends Controller
                 'type'          => 'adjustment',
                 'qty_change'    => (int)$data['quantity'],
                 'balance_after' => (int)$data['quantity'],
-                'reference'     => 'Initial stock',
-                'notes'         => 'Opening balance on product creation',
+                'reference'     => '期初库存',
+                'notes'         => '创建产品时的期初库存',
             ]);
         }
 
-        $this->flash('success', 'Product added.');
+        $this->flash('success', '产品添加成功。');
         $this->redirect('/products');
     }
 
     public function edit(string $id): void
     {
         $product = Product::find($id);
-        if (!$product) { $this->flash('error', 'Product not found.'); $this->redirect('/products'); }
+        if (!$product) { $this->flash('error', '产品未找到。'); $this->redirect('/products'); }
         $this->view('products/form', [
-            'title'        => 'Edit Product',
+            'title'        => '编辑产品',
             'product'      => $product,
             'categories'   => Category::all('name'),
             'customFields' => Product::customFields(),
@@ -105,15 +105,15 @@ class ProductController extends Controller
     {
         $this->verifyCsrf();
         $product = Product::find($id);
-        if (!$product) { $this->flash('error', 'Product not found.'); $this->redirect('/products'); }
+        if (!$product) { $this->flash('error', '产品未找到。'); $this->redirect('/products'); }
         $data = $this->productData(Product::parseCustomFields($product['attributes'] ?? '{}'));
 
         if ($data['sku'] === '' || $data['name'] === '') {
-            $this->flash('error', 'SKU and product name are required.');
+            $this->flash('error', 'SKU和产品名称为必填项。');
             $this->redirect('/products/' . $id . '/edit');
         }
         if (Product::exists('sku', $data['sku'], (int)$id)) {
-            $this->flash('error', 'A product with SKU "' . htmlspecialchars($data['sku']) . '" already exists.');
+            $this->flash('error', 'SKU为 "' . htmlspecialchars($data['sku']) . '" 的产品已存在。');
             $this->redirect('/products/' . $id . '/edit');
         }
 
@@ -144,12 +144,12 @@ class ProductController extends Controller
                 'type'          => 'adjustment',
                 'qty_change'    => $diff,
                 'balance_after' => (int)$data['quantity'],
-                'reference'     => 'Manual edit',
-                'notes'         => 'Quantity corrected via product edit form',
+                'reference'     => '手动编辑',
+                'notes'         => '通过产品编辑表单修正数量',
             ]);
         }
 
-        $this->flash('success', 'Product updated.');
+        $this->flash('success', '产品更新成功。');
         $this->redirect('/products');
     }
 
@@ -157,13 +157,13 @@ class ProductController extends Controller
     {
         $this->verifyCsrf();
         $product = Product::find($id);
-        if (!$product) { $this->flash('error', 'Product not found.'); $this->redirect('/products'); }
+        if (!$product) { $this->flash('error', '产品未找到。'); $this->redirect('/products'); }
 
         // Check if product is referenced by any purchase or sale items
         $purchaseCount = Model::raw('SELECT COUNT(*) AS cnt FROM purchase_items WHERE product_id = ?', [$id])[0]['cnt'] ?? 0;
         $saleCount     = Model::raw('SELECT COUNT(*) AS cnt FROM sale_items WHERE product_id = ?', [$id])[0]['cnt'] ?? 0;
         if ($purchaseCount > 0 || $saleCount > 0) {
-            $this->flash('error', 'Cannot delete this product because it is referenced by existing purchase or sale records. Consider archiving it instead.');
+            $this->flash('error', '无法删除此产品，因为它被现有的采购或销售记录引用。建议改为归档。');
             $this->redirect('/products');
         }
 
@@ -179,17 +179,17 @@ class ProductController extends Controller
         Model::raw("DELETE FROM change_logs WHERE table_name = 'products' AND record_id = ?", [$id]);
         Product::delete($id);
 
-        $this->flash('success', 'Product deleted.');
+        $this->flash('success', '产品删除成功。');
         $this->redirect('/products');
     }
 
     public function show(string $id): void
     {
         $product = Product::find($id);
-        if (!$product) { $this->flash('error', 'Product not found.'); $this->redirect('/products'); }
+        if (!$product) { $this->flash('error', '产品未找到。'); $this->redirect('/products'); }
 
         $this->view('products/show', [
-            'title'        => 'Product Detail',
+            'title'        => '产品详情',
             'product'      => $product,
             'transactions' => InventoryTransaction::forProduct((int)$id),
             'customFields' => Product::customFields(),
@@ -258,7 +258,7 @@ class ProductController extends Controller
     public function importForm(): void
     {
         $this->view('products/import', [
-            'title'        => 'Import Products',
+            'title'        => '导入产品',
             'customFields' => Product::customFields(),
         ]);
     }
@@ -276,7 +276,7 @@ class ProductController extends Controller
         $this->verifyCsrf();
 
         if (empty($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
-            $this->flash('error', 'Please choose a CSV or ZIP file to import.');
+            $this->flash('error', '请选择要导入的CSV或ZIP文件。');
             $this->redirect('/products/import');
         }
 
@@ -292,14 +292,14 @@ class ProductController extends Controller
         if (preg_match('/\.zip$/i', $origName)) {
             $extractDir = sys_get_temp_dir() . '/psi_import_' . uniqid();
             if (!mkdir($extractDir, 0755, true)) {
-                $this->flash('error', 'Could not create a temporary folder for extraction.');
+                $this->flash('error', '无法创建临时解压文件夹。');
                 $this->redirect('/products/import');
             }
 
             $zip = new \ZipArchive();
             if ($zip->open($tmpName) !== true) {
                 $this->removeDirectory($extractDir);
-                $this->flash('error', 'Could not open the ZIP archive.');
+                $this->flash('error', '无法打开ZIP压缩包。');
                 $this->redirect('/products/import');
             }
             $zip->extractTo($extractDir);
@@ -308,7 +308,7 @@ class ProductController extends Controller
             $csvFiles = $this->findFilesByExtension($extractDir, ['csv']);
             if (empty($csvFiles)) {
                 $this->removeDirectory($extractDir);
-                $this->flash('error', 'No CSV file found inside the ZIP archive.');
+                $this->flash('error', 'ZIP压缩包中未找到CSV文件。');
                 $this->redirect('/products/import');
             }
             $csvPath = $csvFiles[0];
@@ -319,7 +319,7 @@ class ProductController extends Controller
         $handle = @fopen($csvPath, 'r');
         if (!$handle) {
             if ($extractDir) $this->removeDirectory($extractDir);
-            $this->flash('error', 'Could not read the CSV file.');
+            $this->flash('error', '无法读取CSV文件。');
             $this->redirect('/products/import');
         }
 
@@ -327,7 +327,7 @@ class ProductController extends Controller
         $header = fgetcsv($handle);
         if ($header === false) {
             fclose($handle);
-            $this->flash('error', 'The CSV file is empty.');
+            $this->flash('error', 'CSV文件为空。');
             $this->redirect('/products/import');
         }
 
@@ -354,7 +354,7 @@ class ProductController extends Controller
         foreach ($required as $col) {
             if (!isset($map[$col])) {
                 fclose($handle);
-                $this->flash('error', "CSV is missing required column: \"{$col}\". Expected: sku, name, category, unit, cost_price, sale_price, quantity, reorder_level.");
+                $this->flash('error', "CSV缺少必需列：\"{$col}\"。期望的列：sku, name, category, unit, cost_price, sale_price, quantity, reorder_level。");
                 $this->redirect('/products/import');
             }
         }
@@ -376,7 +376,7 @@ class ProductController extends Controller
 
             if ($sku === '' || $name === '') {
                 $skipped++;
-                $errors[] = "Row {$rowNum}: missing sku or name.";
+                $errors[] = "第 {$rowNum} 行：缺少sku或名称。";
                 continue;
             }
 
@@ -416,7 +416,7 @@ class ProductController extends Controller
             if ($existing) {
                 if (!$updateExisting) {
                     $skipped++;
-                    $errors[] = "Row {$rowNum}: SKU \"{$sku}\" already exists (skipped).";
+                    $errors[] = "第 {$rowNum} 行：SKU \"{$sku}\" 已存在（已跳过）。";
                     continue;
                 }
                 // Preserve gallery + merge custom fields when updating
@@ -431,8 +431,8 @@ class ProductController extends Controller
                         'type'          => 'adjustment',
                         'qty_change'    => $diff,
                         'balance_after' => (int)$data['quantity'],
-                        'reference'     => 'CSV import',
-                        'notes'         => 'Quantity corrected via CSV import',
+                        'reference'     => 'CSV导入',
+                        'notes'         => '通过CSV导入修正数量',
                     ]);
                 }
                 $updated++;
@@ -446,8 +446,8 @@ class ProductController extends Controller
                     'type'          => 'adjustment',
                     'qty_change'    => (int)$data['quantity'],
                     'balance_after' => (int)$data['quantity'],
-                    'reference'     => 'CSV import',
-                    'notes'         => 'Opening balance via CSV import',
+                    'reference'     => 'CSV导入',
+                    'notes'         => '通过CSV导入的期初库存',
                 ]);
             }
             $imported++;
@@ -473,13 +473,13 @@ class ProductController extends Controller
         if ($extractDir) $this->removeDirectory($extractDir);
 
         $parts = [];
-        if ($imported > 0)      $parts[] = "{$imported} imported";
-        if ($updated > 0)       $parts[] = "{$updated} updated";
-        if ($skipped > 0)       $parts[] = "{$skipped} skipped";
+        if ($imported > 0)      $parts[] = "导入 {$imported} 条";
+        if ($updated > 0)       $parts[] = "更新 {$updated} 条";
+        if ($skipped > 0)       $parts[] = "跳过 {$skipped} 条";
         if ($imagesAdded > 0)   $parts[] = "{$imagesAdded} images attached";
         if ($imagesUnmatched > 0) $parts[] = "{$imagesUnmatched} images unmatched";
 
-        $this->flash('success', 'CSV import complete: ' . (implode(', ', $parts) ?: 'no changes') . '.');
+        $this->flash('success', 'CSV导入完成：' . (implode(', ', $parts) ?: '无更改') . '。');
 
         if (!empty($errors)) {
             $this->flash('error', implode(' ', array_slice($errors, 0, 5)) . (count($errors) > 5 ? ' …' : ''));

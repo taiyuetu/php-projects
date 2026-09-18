@@ -13,41 +13,41 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
 ?>
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2 style="margin:0;">All Products</h2>
+        <h2 style="margin:0;">所有产品</h2>
         <div style="display:flex;gap:10px;align-items:center;">
-            <a href="<?= Router::url('/products/import') ?>" class="btn btn-secondary">Import CSV</a>
-            <a href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-secondary">Export CSV</a>
-            <a href="<?= Router::url('/products/create') ?>" class="btn btn-primary">+ Add Product</a>
+            <a href="<?= Router::url('/products/import') ?>" class="btn btn-secondary">导入CSV</a>
+            <a href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-secondary">导出CSV</a>
+            <a href="<?= Router::url('/products/create') ?>" class="btn btn-primary">+ 添加产品</a>
         </div>
     </div>
 
     <form method="get" action="<?= Router::url('/products') ?>" class="filter-form">
-        <input type="search" name="q" placeholder="Search products..." value="<?= htmlspecialchars($q ?? '') ?>">
+        <input type="search" name="q" placeholder="搜索产品..." value="<?= htmlspecialchars($q ?? '') ?>">
         <select name="category_id">
-            <option value="">All Categories</option>
+            <option value="">所有分类</option>
             <?php foreach ($categories as $c): ?>
                 <option value="<?= $c['id'] ?>" <?= (($categoryId ?? '') == $c['id']) ? 'selected' : '' ?>><?= htmlspecialchars($c['name']) ?></option>
             <?php endforeach; ?>
         </select>
         <select name="status">
-            <option value="">All Stock</option>
-            <option value="in" <?= (($status ?? '') === 'in') ? 'selected' : '' ?>>In Stock</option>
-            <option value="low" <?= (($status ?? '') === 'low') ? 'selected' : '' ?>>Low Stock</option>
+            <option value="">全部库存</option>
+            <option value="in" <?= (($status ?? '') === 'in') ? 'selected' : '' ?>>有库存</option>
+            <option value="low" <?= (($status ?? '') === 'low') ? 'selected' : '' ?>>低库存</option>
         </select>
         <?php include __DIR__ . '/../partials/custom_fields_filters.php'; ?>
-        <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        <button type="submit" class="btn btn-secondary btn-sm">筛选</button>
         <?php if ($hasFilter): ?>
-            <a href="<?= Router::url('/products') ?>" class="btn btn-secondary btn-sm">Clear</a>
+            <a href="<?= Router::url('/products') ?>" class="btn btn-secondary btn-sm">清除</a>
         <?php endif; ?>
     </form>
 
     <?php if (empty($products)): ?>
-        <p class="empty-state"><?= $hasFilter ? 'No products match your filters.' : 'No products yet. Add your first one to get started.' ?></p>
+        <p class="empty-state"><?= $hasFilter ? '没有匹配的产品。' : '还没有产品。添加第一个产品开始。' ?></p>
     <?php else: ?>
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>SKU</th><th>Name</th><th>Gallery</th><th>Category</th><?php include __DIR__ . '/../partials/custom_fields_headers.php'; ?><th>Cost</th><th>Price</th><th>Qty</th><th>Status</th><th></th></tr>
+            <tr><th>SKU</th><th>名称</th><th>图库</th><th>分类</th><?php include __DIR__ . '/../partials/custom_fields_headers.php'; ?><th>成本</th><th>价格</th><th>数量</th><th>状态</th><th></th></tr>
         </thead>
         <tbody>
         <?php foreach ($products as $p): ?>
@@ -80,13 +80,13 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
                 <td><?= $p['quantity'] ?> <?= htmlspecialchars($p['unit']) ?></td>
                 <td>
                     <?php if ($p['quantity'] <= $p['reorder_level']): ?>
-                        <span class="badge badge-red">Low Stock</span>
+                        <span class="badge badge-red">低库存</span>
                     <?php else: ?>
-                        <span class="badge badge-green">In Stock</span>
+                        <span class="badge badge-green">有库存</span>
                     <?php endif; ?>
                 </td>
                 <td class="actions">
-                    <a href="<?= Router::url('/products/' . $p['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">Edit</a>
+                    <a href="<?= Router::url('/products/' . $p['id'] . '/edit') ?>" class="btn btn-secondary btn-sm">编辑</a>
                     <?php $deleteUrl = Router::url('/products/' . $p['id'] . '/delete'); include __DIR__ . '/../partials/delete_button.php'; ?>
                 </td>
             </tr>

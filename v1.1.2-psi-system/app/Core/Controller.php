@@ -15,7 +15,7 @@ abstract class Controller
         $viewFile = __DIR__ . '/../Views/' . $view . '.php';
 
         if (!file_exists($viewFile)) {
-            die("View not found: {$view}");
+            die("视图未找到: {$view}");
         }
 
         ob_start();
@@ -96,7 +96,7 @@ abstract class Controller
             if (!empty($def['required']) && $type !== 'upload') {
                 $v = $merged[$key] ?? '';
                 if (is_string($v) && trim($v) === '') {
-                    $errors[] = "{$label} is required.";
+                    $errors[] = "{$label} 为必填项。";
                 }
             }
 
@@ -123,7 +123,7 @@ abstract class Controller
                 $hasUpload = !empty($_FILES['cf_' . $key]) && $_FILES['cf_' . $key]['error'] === UPLOAD_ERR_OK;
                 $deleting = !empty($_POST['cf_' . $key . '_delete']);
                 if (!$hasExisting && !$hasUpload && !$deleting) {
-                    $errors[] = ($def['label'] ?? $key) . ' is required.';
+                    $errors[] = ($def['label'] ?? $key) . ' 为必填项。';
                 }
             }
         }
@@ -173,7 +173,7 @@ abstract class Controller
         $token = $_POST['csrf_token'] ?? '';
         if (!$token || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
             http_response_code(419);
-            die('Invalid or expired form submission (CSRF check failed). Please go back and try again.');
+            die('表单提交无效或已过期（CSRF校验失败）。请返回并重试。');
         }
     }
 }

@@ -15,7 +15,7 @@ class InventoryController extends Controller
         $result = InventoryTransaction::filterPaginated($q, $page);
 
         $this->view('inventory/index', [
-            'title'        => 'Inventory Ledger',
+            'title'        => '库存流水',
             'transactions' => $result['rows'],
             'q'            => $q,
             'customFields' => InventoryTransaction::customFields(),
