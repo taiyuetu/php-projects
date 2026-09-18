@@ -13,11 +13,11 @@
     </div>
     <div class="stat-card accent-green">
         <div class="label">销售总额</div>
-        <div class="value">$<?= number_format($salesTotal, 2) ?></div>
+        <div class="value"><?= money($salesTotal) ?></div>
     </div>
     <div class="stat-card accent-amber">
         <div class="label">采购支出</div>
-        <div class="value">$<?= number_format($purchaseTotal, 2) ?></div>
+        <div class="value"><?= money($purchaseTotal) ?></div>
     </div>
     <div class="stat-card accent-red">
         <div class="label">低库存商品</div>
@@ -25,7 +25,7 @@
     </div>
     <div class="stat-card">
         <div class="label">库存价值（成本）</div>
-        <div class="value">$<?= number_format($stockValue, 2) ?></div>
+        <div class="value"><?= money($stockValue) ?></div>
     </div>
     <div class="stat-card">
         <div class="label">订单（采购/销售）</div>
@@ -41,7 +41,7 @@
         <?php else: ?>
             <div class="table-wrap">
             <table>
-                <thead><tr><th>产品</th><th>数量</th><th>再订货点</th></tr></thead>
+                <thead><tr><th>产品</th><th>数量</th><th>库存预警</th></tr></thead>
                 <tbody>
                 <?php foreach (array_slice($lowStock, 0, 8) as $p): ?>
                     <tr>

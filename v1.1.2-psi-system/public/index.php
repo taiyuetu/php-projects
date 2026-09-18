@@ -26,6 +26,9 @@ spl_autoload_register(function ($class) {
     }
 });
 
+// ---- Global view helpers (setting(), money()) ----
+require __DIR__ . '/../app/Core/helpers.php';
+
 use App\Core\Router;
 use App\Core\Auth;
 

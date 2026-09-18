@@ -18,7 +18,12 @@ no Composer, no framework lock-in, just plain PHP organized the right way.
   server-side validation that blocks overselling (atomic DB transaction, rolls back on failure)
 - **Inventory Ledger** — full audit trail of every stock movement (purchase / sale / manual adjustment)
 - **Reports** — sales report, purchase report, and stock valuation report, each with date filtering
+- **Settings (系统设置)** — admin-only page to configure the app name, company info,
+  currency symbol, document notes, and your own account (name / email / password).
+  The currency symbol is applied to every money display across the app.
 - **Auth** — simple session-based login, CSRF protection on every form
+- **中文界面** — the entire user interface (labels, navigation, flash messages, and
+  validation errors) is localized in Simplified Chinese (since v1.6.0)
 - **Custom Fields** — data-driven, JSON-backed extension fields on every model. Declare fields
   once per model and they automatically appear in forms, list views, filters, and CSV import/export.
   See [Custom Fields](#custom-fields) below.

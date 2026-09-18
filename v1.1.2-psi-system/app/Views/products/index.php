@@ -75,8 +75,8 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
                 </td>
                 <td><?= htmlspecialchars($p['category_name'] ?? '—') ?></td>
                 <?php include __DIR__ . '/../partials/custom_fields_cells.php'; ?>
-                <td>$<?= number_format($p['cost_price'], 2) ?></td>
-                <td>$<?= number_format($p['sale_price'], 2) ?></td>
+                <td><?= money($p['cost_price']) ?></td>
+                <td><?= money($p['sale_price']) ?></td>
                 <td><?= $p['quantity'] ?> <?= htmlspecialchars($p['unit']) ?></td>
                 <td>
                     <?php if ($p['quantity'] <= $p['reorder_level']): ?>

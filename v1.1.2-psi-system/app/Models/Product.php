@@ -21,9 +21,11 @@ class Product extends Model
     protected static function customFieldDefinitions(): array
     {
         return [
-            'brand'    => ['label' => 'Brand',    'type' => 'text',   'filterable' => true],
-            'color'    => ['label' => 'Color',    'type' => 'select', 'filterable' => true, 'options' => ['black', 'red', 'blue', 'silver', 'green']],
-            'material' => ['label' => 'Material', 'type' => 'text',   'filterable' => true],
+            'car_make'       => ['label' => '车辆品牌', 'type' => 'text', 'filterable' => true],
+            'oem_number'     => ['label' => 'OEM编号',  'type' => 'text', 'filterable' => true],
+            'car_application'=> ['label' => '适用车型', 'type' => 'text', 'filterable' => true],
+            'weight'         => ['label' => '重量',     'type' => 'text'],
+            'box_size'       => ['label' => '箱体尺寸', 'type' => 'text'],
         ];
     }
 

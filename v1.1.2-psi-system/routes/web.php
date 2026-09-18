@@ -84,6 +84,10 @@ Router::get('/changelogs/table/{tableName}', 'ChangeLogController@table');
 Router::get('/changelogs/record/{tableName}/{recordId}', 'ChangeLogController@record');
 Router::get('/changelogs/{id}', 'ChangeLogController@show');
 
+// Settings
+Router::get('/settings', 'SettingController@index');
+Router::post('/settings', 'SettingController@update');
+
 // Change Log Admin
 Router::get('/admin/changelogs', 'ChangeLogAdminController@index');
 Router::post('/admin/changelogs/archive', 'ChangeLogAdminController@archive');

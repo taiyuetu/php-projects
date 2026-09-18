@@ -10,7 +10,7 @@ $user = Auth::user();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($title ?? 'PSI System') ?> · PSI 系统</title>
+    <title><?= htmlspecialchars($title ?? 'PSI System') ?> · <?= htmlspecialchars(setting('app_name', 'PSI 系统')) ?></title>
     <link rel="stylesheet" href="<?= Router::url('/assets/css/style.css') ?>">
 </head>
 <body>
@@ -45,6 +45,7 @@ $user = Auth::user();
             <a href="<?= Router::url('/changelogs') ?>" class="<?= $isActive('/changelogs') ?>">📋 变更日志</a>
             <?php if (($user['role'] ?? '') === 'admin'): ?>
                 <a href="<?= Router::url('/admin/changelogs') ?>" class="<?= $isActive('/admin/changelogs') ?>">⚙️ 日志管理</a>
+                <a href="<?= Router::url('/settings') ?>" class="<?= $isActive('/settings') ?>">🛠️ 系统设置</a>
             <?php endif; ?>
         </nav>
     </aside>

@@ -38,7 +38,7 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
                 <td class="text-muted"><?= htmlspecialchars($p['purchase_date']) ?></td>
                 <td class="text-muted"><?= $p['total_arrived_qty'] ? (int)$p['total_arrived_qty'] . ' 件' : '—' ?></td>
                 <?php $attrs = $purchaseAttrs; if (!empty($customFields)) { include __DIR__ . '/../partials/custom_fields_cells.php'; } ?>
-                <td class="text-right">$<?= number_format($p['total'], 2) ?></td>
+                <td class="text-right"><?= money($p['total']) ?></td>
                 <td><a href="<?= Router::url('/purchases/' . $p['id']) ?>" class="btn btn-secondary btn-sm">查看</a></td>
             </tr>
         <?php endforeach; ?>

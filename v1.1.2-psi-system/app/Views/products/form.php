@@ -53,7 +53,7 @@ $attrs = json_decode($product['attributes'] ?? '{}', true) ?: [];
                 <input type="number" min="0" name="quantity" value="<?= htmlspecialchars($product['quantity'] ?? '0') ?>">
             </div>
             <div class="form-group">
-                <label>再订货点</label>
+                <label>库存预警</label>
                 <input type="number" min="0" name="reorder_level" value="<?= htmlspecialchars($product['reorder_level'] ?? '0') ?>">
             </div>
         </div>

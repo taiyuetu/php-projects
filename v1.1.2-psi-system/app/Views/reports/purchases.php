@@ -27,12 +27,12 @@
                 <td><?= htmlspecialchars($r['invoice_no']) ?></td>
                 <td class="text-muted"><?= htmlspecialchars($r['purchase_date']) ?></td>
                 <td><?= htmlspecialchars($r['supplier_name']) ?></td>
-                <td class="text-right">$<?= number_format($r['total'], 2) ?></td>
+                <td class="text-right"><?= money($r['total']) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="3" class="text-right"><strong>总计</strong></td><td class="text-right"><strong>$<?= number_format($total, 2) ?></strong></td></tr>
+            <tr><td colspan="3" class="text-right"><strong>总计</strong></td><td class="text-right"><strong><?= money($total) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

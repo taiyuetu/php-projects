@@ -16,13 +16,13 @@
                 <td><?= htmlspecialchars($p['name']) ?></td>
                 <td><?= htmlspecialchars($p['category_name'] ?? '—') ?></td>
                 <td class="text-right"><?= $p['quantity'] ?></td>
-                <td class="text-right">$<?= number_format($p['cost_price'], 2) ?></td>
-                <td class="text-right">$<?= number_format($p['quantity'] * $p['cost_price'], 2) ?></td>
+                <td class="text-right"><?= money($p['cost_price']) ?></td>
+                <td class="text-right"><?= money($p['quantity'] * $p['cost_price']) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="5" class="text-right"><strong>库存总价值</strong></td><td class="text-right"><strong>$<?= number_format($totalValue, 2) ?></strong></td></tr>
+            <tr><td colspan="5" class="text-right"><strong>库存总价值</strong></td><td class="text-right"><strong><?= money($totalValue) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

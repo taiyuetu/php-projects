@@ -49,13 +49,13 @@ $saleAttrs = json_decode($sale['attributes'] ?? '{}', true) ?: [];
                 <td class="text-muted"><?= htmlspecialchars($item['sku']) ?></td>
                 <td><?= htmlspecialchars($item['product_name']) ?></td>
                 <td class="text-right"><?= $item['qty'] ?></td>
-                <td class="text-right">$<?= number_format($item['unit_price'], 2) ?></td>
-                <td class="text-right">$<?= number_format($item['subtotal'], 2) ?></td>
+                <td class="text-right"><?= money($item['unit_price']) ?></td>
+                <td class="text-right"><?= money($item['subtotal']) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="4" class="text-right"><strong>总计</strong></td><td class="text-right"><strong>$<?= number_format($sale['total'], 2) ?></strong></td></tr>
+            <tr><td colspan="4" class="text-right"><strong>总计</strong></td><td class="text-right"><strong><?= money($sale['total']) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

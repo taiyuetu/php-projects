@@ -130,6 +130,13 @@ CREATE TABLE IF NOT EXISTS inventory_transactions (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+-- Application settings (key/value store managed on the "系统设置" page).
+CREATE TABLE IF NOT EXISTS settings (
+    skey       TEXT PRIMARY KEY,
+    svalue     TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 --通用变更日志表，记录所有表的变更历史
 CREATE TABLE IF NOT EXISTS change_logs (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

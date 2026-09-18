@@ -5,6 +5,36 @@ All notable changes to the PSI System are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-09-18
+
+### Added
+- **Settings module (系统设置)** — new admin-only key/value settings page
+  (`/settings`) covering:
+  - **应用信息** — configurable app name (shown in page titles and the login page)
+  - **公司信息** — company name, phone, email, and address
+  - **货币符号** — configurable currency symbol (`$` by default) applied to every
+    money display via the new global `money()` view helper; the previously
+    hard-coded `$` prefixes in all views now follow the setting
+  - **单据备注** — free-form note for reports/documents
+  - **账户信息** — the logged-in admin can update their own name, email, and
+    password (left blank keeps the current password)
+- **`Setting` model** — key/value store (`settings` table) with built-in
+  defaults, per-request caching, and a strict key whitelist; missing rows fall
+  back to defaults so the app works before the settings page is ever used.
+- **`database/add_settings_table.php`** migration; `schema.sql` updated.
+- **Global view helpers** (`app/Core/helpers.php`): `setting($key)` and
+  `money($amount)` — both fail-safe when the settings table does not exist yet.
+- Sidebar link "系统设置" under the 系统 section (admin only).
+
+## [1.6.0] - 2026-09-18
+
+### Changed
+- **Simplified Chinese UI** — all user-facing interface labels, navigation,
+  buttons, table headers, flash messages, and validation errors across every
+  page (dashboard, products, categories, suppliers, customers, purchases,
+  sales, inventory, reports, and auth screens) are now displayed in Simplified
+  Chinese. No functional changes; internal identifiers and code are unchanged.
+
 ## [1.5.0] - 2026-08-31
 
 ### Added

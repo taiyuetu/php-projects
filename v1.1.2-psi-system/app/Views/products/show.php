@@ -15,9 +15,9 @@ $customFields = $customFields ?? [];
 
     <div class="stat-grid" style="margin-top:16px;">
         <div class="stat-card"><div class="label">当前库存</div><div class="value"><?= $product['quantity'] ?> <?= htmlspecialchars($product['unit']) ?></div></div>
-        <div class="stat-card"><div class="label">成本价</div><div class="value">$<?= number_format($product['cost_price'], 2) ?></div></div>
-        <div class="stat-card"><div class="label">销售价</div><div class="value">$<?= number_format($product['sale_price'], 2) ?></div></div>
-        <div class="stat-card"><div class="label">再订货点</div><div class="value"><?= $product['reorder_level'] ?></div></div>
+        <div class="stat-card"><div class="label">成本价</div><div class="value"><?= money($product['cost_price']) ?></div></div>
+        <div class="stat-card"><div class="label">销售价</div><div class="value"><?= money($product['sale_price']) ?></div></div>
+        <div class="stat-card"><div class="label">库存预警</div><div class="value"><?= $product['reorder_level'] ?></div></div>
     </div>
 
     <?php if (!empty($customFields)): ?>

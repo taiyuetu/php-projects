@@ -151,13 +151,13 @@ $remaining = max(0, $totalOrdered - $totalArrived);
                 <td class="text-muted"><?= htmlspecialchars($item['sku']) ?></td>
                 <td><?= htmlspecialchars($item['product_name']) ?></td>
                 <td class="text-right"><?= $item['qty'] ?></td>
-                <td class="text-right">$<?= number_format($item['unit_cost'], 2) ?></td>
-                <td class="text-right">$<?= number_format($item['subtotal'], 2) ?></td>
+                <td class="text-right"><?= money($item['unit_cost']) ?></td>
+                <td class="text-right"><?= money($item['subtotal']) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
         <tfoot>
-            <tr><td colspan="4" class="text-right"><strong>总计</strong></td><td class="text-right"><strong>$<?= number_format($purchase['total'], 2) ?></strong></td></tr>
+            <tr><td colspan="4" class="text-right"><strong>总计</strong></td><td class="text-right"><strong><?= money($purchase['total']) ?></strong></td></tr>
         </tfoot>
     </table>
     </div>

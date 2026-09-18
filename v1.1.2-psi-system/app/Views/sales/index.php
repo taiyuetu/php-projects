@@ -37,7 +37,7 @@ $hasFilter = count(array_filter($filters, fn($v) => $v !== '')) > 0;
                 <td><?= htmlspecialchars($s['customer_name'] ?? '散客') ?></td>
                 <td class="text-muted"><?= htmlspecialchars($s['sale_date']) ?></td>
                 <?php $attrs = $saleAttrs; if (!empty($customFields)) { include __DIR__ . '/../partials/custom_fields_cells.php'; } ?>
-                <td class="text-right">$<?= number_format($s['total'], 2) ?></td>
+                <td class="text-right"><?= money($s['total']) ?></td>
                 <td><a href="<?= Router::url('/sales/' . $s['id']) ?>" class="btn btn-secondary btn-sm">查看</a></td>
             </tr>
         <?php endforeach; ?>

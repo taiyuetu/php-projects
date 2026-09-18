@@ -6,7 +6,7 @@
  */
 return [
     'app_name'   => 'PSI System — Purchase Sales Inventory',
-    'app_version' => '1.5.0',
+    'app_version' => '1.7.0',
     'debug'      => true, // show detailed errors; set false in production
     'base_url'   => '/', // change if hosted in a sub-folder
     'db' => [

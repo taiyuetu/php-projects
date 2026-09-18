@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login · PSI 系统</title>
+    <title>Login · <?= htmlspecialchars(setting('app_name', 'PSI 系统')) ?></title>
     <link rel="stylesheet" href="<?= Router::url('/assets/css/style.css') ?>">
 </head>
 <body>
