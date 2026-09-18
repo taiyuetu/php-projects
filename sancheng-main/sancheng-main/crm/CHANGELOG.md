@@ -10,6 +10,25 @@
 ## [Unreleased]
 
 ### Added
+- **客户状态从 2 种扩到 5 种**：活跃客户（`active`）/ 一次性客户（`one_time`）/ 非活跃客户（`inactive`）/
+  沉睡客户（`dormant`）/ 流失客户（`lost`）。
+  - 取值与中文名在 `Customer::STATUSES` 里声明一处：新建/编辑下拉、列表与详情页徐章、
+    `customerStatusBadge()`、以及 AI 的参数与校验全从它派生。视图里原来硬编码的两个
+    `<option>` 和全局 `statusBadge()` 的客户用法一并收拢为一份；全局表继续服务线索/商机/订单
+    —— 同样叫 `active`/`lost` 的值在不同表里含义不同，混在一张表里早晚互相污染。
+  - **SQLite 改不了 CHECK 约束，只能重建表**：`migrations/021_customers_status_enum.sql`
+    是官方 12 步（建新表 → 拷数据 → 换名），关外键 + `legacy_alter_table=ON`，
+    并在文件里显式 `BEGIN/COMMIT`（含 PRAGMA 的文件不会被 `DbMigrator::execSql()` 包事务）。
+    索引与触发器会随 DROP TABLE 一起消失，必须在迁移里逐个重建 —— 这里真栽过一次：
+    `uidx_customers_public_code` 是增量 007 建的（**不在基线里**），第一版只重建了基线里的
+    `idx_customers_status`，`PublicCodeTest` 当场抲到「唯一索引不见 0」。现在 `MigrationTest`
+    除了列清单，还逐项比对新建库与升级库的索引/触发器集合，并把‘旧库升级 → 新值可写 /
+    非法值仍被拒 / 关联行与级联删除都在 / 自增不断’整条路踏了一遍。
+  - 存量 `active` / `inactive` 含义不变，原样搬运；`HttpSmokeTest` 另加了
+    「表单选溡睡客户 → 落库 dormant → 列表/详情显示中文」的端到端回归。
+  - AI：可写取值与校验自动跟着 DB CHECK 走（`fieldsFor()` 读表结构，无需手写），
+    提示词 8328 → 8406 字，三个 AI 用例的回归闸门 8350 → 8450（与之前几次一样，
+    上限是护栏不是目标，长在能力上就要把为什么写清楚）。
 - **客户详情页的跟进记录补齐 CRUD（新增 / 查看 / 编辑 / 删除）**：此前 `follow_ups` 只有一个
   `POST /customers/{id}/follow-ups`（新增）和一个只读列表 —— 记错一个标题、选错类型、跟进日期写错，
   页面上没有任何补救入口（只能改库或让 AI 去改）。现在每行右侧有「编辑」「删除」：

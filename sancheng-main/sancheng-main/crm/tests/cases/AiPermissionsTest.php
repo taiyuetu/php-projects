@@ -492,8 +492,10 @@ function test_the_tool_table_is_the_single_source_of_truth(): void
     assertContains('真实 ID', $prompt);
     // 上限是回归闸门而不是目标值：能力增加时提示词会长，但不许无节制地长
     // 8100 → 8300：商品库新增「库存」列；8300 → 8350：线索新增 wechat 列（字段清单由表结构生成，
-    // 故自动进提示词）+ 规则 5b 补「商机只认客户」，实测 8328。原因见 CHANGELOG [Unreleased]
-    assertTrue(textLength($prompt) < 8350, '系统提示仍受长度约束（实测 ' . textLength($prompt) . ' 字）');
+    // 故自动进提示词）+ 规则 5b 补「商机只认客户」，实测 8328。8350 → 8450：客户状态 2 → 5 种
+    // （one_time / dormant / lost 进 create_customer / update_customer 的枚举），实测 8406。
+    // 原因见 CHANGELOG [Unreleased]
+    assertTrue(textLength($prompt) < 8450, '系统提示仍受长度约束（实测 ' . textLength($prompt) . ' 字）');
 
     // every tool is reachable: it has a runner, or it is refused as unimplemented
     foreach (array_keys($tools) as $name) {

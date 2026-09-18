@@ -313,6 +313,28 @@ function test_follow_ups_are_readable_and_editable(): void
     assertTrue(!($bad['ok'] ?? false), '不存在的跟进 ID 要拒（至少要有一个要改的字段）');
 }
 
+/**
+ * 客户状态 5 种：AI 侧的可选值来自 DB CHECK（不是手写清单），新值要能写、错值要被拒。
+ * 这条用例把「改了 CHECK/模型常量但忘了同步 AI 参数」这种半成品卡住。
+ */
+function test_ai_can_set_every_customer_status(): void
+{
+    $user = fieldsAdmin();
+    $cid = (int) (new Customer())->create(['name' => '状态客户', 'status' => 'active', 'owner_id' => $user]);
+    $code = (new Customer())->codeOf((new Customer())->find($cid));
+
+    foreach (['one_time', 'dormant', 'lost', 'inactive', 'active'] as $status) {
+        $res = runToolOnce('update_customer', ['customer_id' => $code, 'status' => $status], $user);
+        assertTrue((bool) ($res['ok'] ?? false), "改客户状态为 {$status} 应当成功：" . (string) ($res['message'] ?? ''));
+        assertEquals($status, (string) (new Customer())->find($cid)['status'], "落库为 {$status}");
+    }
+
+    $bad = runToolOnce('update_customer', ['customer_id' => $code, 'status' => 'archived'], $user);
+    assertTrue(!($bad['ok'] ?? false), '非法状态被 AI 校验拒掉');
+    assertContains('不在可选值', (string) ($bad['message'] ?? ''), '拒绝时告诉模型合法取值');
+    assertEquals('active', (string) (new Customer())->find($cid)['status'], '被拒的那次一个字段也没写');
+}
+
 /** 三处同源：提示词、校验、落库用的必须是同一份字段清单 */
 function test_prompt_validation_and_write_share_one_field_list(): void
 {

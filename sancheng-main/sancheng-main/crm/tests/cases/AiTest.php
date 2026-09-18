@@ -448,6 +448,8 @@ function test_requests_are_bounded_so_answers_come_back_fast(): void
     assertEquals(600, $seen['max_tokens'], 'max_tokens is actually sent');
     assertEquals(false, $seen['stream'], 'non-streaming so the reply arrives whole');
     assertContains('leads.status', $seen['messages'][0]['content'], 'the model gets the real enum values');
+    assertContains('customers.status = active|one_time|inactive|dormant|lost', $seen['messages'][0]['content'],
+        '客户状态的 5 种取值（来自 DB CHECK）也在提示词里，模型不用猜');
     // 17 tools + enums + rules now fit in this budget. The cap is a regression
     // guard, not a goal: it used to be 3000 with 7 tools. The point is that the
     // prompt grows with capability, not without bound.
@@ -455,8 +457,10 @@ function test_requests_are_bounded_so_answers_come_back_fast(): void
     // 但总量仍要受控——提示词长度就是用户的等待时间。上限随模块增长时要在 CHANGELOG 里说清为什么。
     // 8100 → 8300：商品库新增「库存」列（products.inventory，字段清单由表结构生成故自动入提示词），
     // 实测 8084 → 8104。8300 → 8350：线索新增 wechat 列（同一机制）+ 规则 5b 补一句
-    // 「商机只认客户」，实测 8328。原因都记在 CHANGELOG [Unreleased]。
-    assertTrue(textLength($seen['messages'][0]['content']) < 8350,
+    // 「商机只认客户」，实测 8328。8350 → 8450：客户状态 2 → 5 种（one_time / dormant / lost
+    // 随字段清单进 create_customer / update_customer 的枚举），实测 8406。
+    // 原因都记在 CHANGELOG [Unreleased]。
+    assertTrue(textLength($seen['messages'][0]['content']) < 8450,
         'the system prompt stays bounded (got ' . textLength($seen['messages'][0]['content']) . ')');
     AiClient::$transport = null;
     (new Setting())->setMany(['ai_max_tokens' => '800'], 1);

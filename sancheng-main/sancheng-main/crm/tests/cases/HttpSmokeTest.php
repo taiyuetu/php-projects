@@ -764,4 +764,39 @@ function test_follow_up_crud_on_the_customer_page(): void
     });
 }
 
+/**
+ * 客户状态 5 种从表单到徽章的端到端：新建时选「沉睡客户」，库里落 dormant，
+ * 列表/详情显示中文「沉睡客户」，编辑页回填选中的那一项。
+ * 这条用例把 schema.sql 的 CHECK、Customer::STATUSES 与视图串起来：只改其中一处就会炸。
+ */
+function test_customer_status_choices_reach_the_page_and_the_database(): void
+{
+    withTestServer('custstatus', function (TestHttp $http, string $base, string $csrf): void {
+        $create = $http->get($base . '/customers/create')['body'];
+        foreach (Customer::statusOptions() as $value => $label) {
+            assertContains('value="' . $value . '"', $create, "新建表单带上了 {$value}");
+            assertContains($label, $create, "新建表单显示 {$label}");
+        }
+
+        $http->post($base . '/customers', [
+            'csrf_token' => $csrf,
+            'name'       => '沉睡客户甲',
+            'status'     => 'dormant',
+        ]);
+        $row = (new Customer())->findBy('name', '沉睡客户甲');
+        assertTrue((bool) $row, '客户已创建');
+        assertEquals('dormant', (string) $row['status'], '落库的是 dormant，没被回落成 active');
+
+        $list = $http->get($base . '/customers')['body'];
+        assertContains('沉睡客户', $list, '列表徽章显示中文状态');
+        assertTrue(!str_contains($list, '>dormant<'), '不要把内部取值直接印给人看');
+
+        $detail = $http->get($base . '/customers/' . (int) $row['id'])['body'];
+        assertContains('沉睡客户', $detail, '详情页同样显示中文状态');
+
+        $edit = $http->get($base . '/customers/' . (int) $row['id'] . '/edit')['body'];
+        assertContains('value="dormant" selected', $edit, '编辑表单回填当前状态');
+    });
+}
+
 runCase();

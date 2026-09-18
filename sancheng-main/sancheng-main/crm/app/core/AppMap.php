@@ -348,6 +348,7 @@ class AppMap
                 'title' => '客户 Customer 与跟进 / 动态 / 附件',
                 'steps' => [
                     '客户详情：基本信息 + 商机 + 订单 + 关联线索 + 跟进记录（比价类询价）+ 活动记录 + 附件',
+                    '客户状态 customers.status（5 种，中文名见 Customer::STATUSES）：active 活跃客户 / one_time 一次性客户 / inactive 非活跃客户 / dormant 沉睡客户 / lost 流失客户；改取值要同步改 schema.sql 的 CHECK 并新增重建表的迁移（SQLite 改不了 CHECK，见 migrations/021）',
                     '跟进 follow_ups.type：price_comparison｜no_response｜follow_up｜other，带 next_action/next_date；详情页上可增/改/删（PUT/DELETE 由表单 _method 伪造，见 routes.php）',
                     '活动 activities：由「添加备注」写入（type=note，user_id=操作人）',
                     '搜索 /customers?q=：姓名、公司、邮箱、电话、WhatsApp、微信、国家、备注（LIKE 匹配，OR 关系）',
@@ -483,7 +484,7 @@ class AppMap
             ],
             [
                 'title' => '金额与文案',
-                'body'  => '金额统一用 money()（货币符号是应用设置，不再硬编码 $）。状态徽标统一用 statusBadge()（中英映射都在那一处）。视图里不要写死系统名，用 appName()。',
+                'body'  => '金额统一用 money()（货币符号是应用设置，不再硬编码 $）。状态徽标统一用 statusBadge()（中英映射都在那一处）；客户状态走自己的 customerStatusBadge()，因为 active/lost 这类值在不同表里含义不同（见 Customer::STATUSES）。视图里不要写死系统名，用 appName()。',
             ],
             [
                 'title' => '源码文件头与版权',

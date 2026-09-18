@@ -226,4 +226,118 @@ function test_no_demo_flag_skips_sample_rows_but_keeps_admin_and_settings(): voi
     }
 }
 
+/** 某张表的附属对象（索引 + 触发器）——重建表最容易把它们弄丢 */
+function dbAttachedObjects(string $dbFile, string $table): array
+{
+    $pdo = new PDO('sqlite:' . $dbFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $stmt = $pdo->prepare("SELECT type || ':' || name FROM sqlite_master WHERE tbl_name = :t AND type IN ('index','trigger') ORDER BY 1");
+    $stmt->execute([':t' => $table]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+/**
+ * 把基线里 customers.status 的 CHECK 退回旧口径（active|inactive），用来造一个"旧库"。
+ * 基线的这段文本一旦改写，这个函数会直接断言失败——别让它静静地造不出旧库。
+ */
+function downgradeCustomerStatusCheck(string $sql): string
+{
+    $pattern = '/CREATE TABLE IF NOT EXISTS customers \((.*?)\n\);/s';
+    $done = false;
+    $out = preg_replace_callback($pattern, static function (array $m) use (&$done): string {
+        $body = str_replace(
+            "CHECK (status IN ('active','one_time','inactive','dormant','lost'))",
+            "CHECK (status IN ('active','inactive'))",
+            $m[1],
+            $count
+        );
+        if ($count === 1) {
+            $done = true;
+        }
+        return 'CREATE TABLE IF NOT EXISTS customers (' . $body . "\n);";
+    }, $sql, 1);
+    assertTrue($done, 'fixture 重写了 customers 的 CHECK（基线文本变了要同步这里）');
+    return (string) $out;
+}
+
+/**
+ * 客户状态 2 → 5（migrations/021）。SQLite 改不了 CHECK，只能建新表→拷数据→换名，
+ * 这是全库最危险的一种迁移（丢数据、断外键、掉索引/触发器都在这一步发生），
+ * 所以造一个“CHECK 还是旧口径、且有数据与关联行”的旧库，真跑一遍 migrate.php。
+ */
+function test_customer_status_enum_upgrade_rebuilds_the_table_safely(): void
+{
+    $legacy = tempDb('status');
+    try {
+        $sql = downgradeCustomerStatusCheck((string) file_get_contents(BASE_PATH . '/database/schema.sql'));
+        assertTrue(!str_contains($sql, "'dormant'"), 'fixture 里真的没有新状态');
+
+        $pdo = new PDO('sqlite:' . $legacy, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec($sql);
+        $pdo->exec("INSERT INTO customers (id, public_code, name, status, owner_id, notes) VALUES (901,'CUS-000901','旧客户A','active',1,'n')");
+        $pdo->exec("INSERT INTO customers (id, public_code, name, status, owner_id) VALUES (902,'CUS-000902','旧客户B','inactive',1)");
+        $pdo->exec("INSERT INTO deals (id, title, customer_id, stage, owner_id) VALUES (901,'d',901,'open',1)");
+        $pdo->exec("INSERT INTO follow_ups (id, customer_id, user_id, type, title) VALUES (901,901,1,'other','f')");
+        unset($pdo);
+
+        [$code, $out] = runMigrate($legacy);
+        assertEquals(0, $code, "旧库升级必须成功:\n{$out}");
+        assertContains('applied: 021_customers_status_enum.sql', $out, '021 真的执行了（不是被跳过）');
+
+        $pdo = new PDO('sqlite:' . $legacy, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $check = (string) $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='customers'")->fetchColumn();
+        assertTrue(str_contains($check, "'dormant'"), '新 CHECK 已落到库里');
+
+        assertEquals(2, (int) $pdo->query('SELECT COUNT(*) FROM customers WHERE id IN (901,902)')->fetchColumn(),
+            '客户行一条不少');
+        assertEquals('inactive', (string) $pdo->query('SELECT status FROM customers WHERE id = 902')->fetchColumn(),
+            '旧值 inactive 原样搬过来');
+        assertEquals(1, (int) $pdo->query('SELECT COUNT(*) FROM deals WHERE customer_id = 901')->fetchColumn(),
+            '关联商机还在');
+        assertEquals(1, (int) $pdo->query('SELECT COUNT(*) FROM follow_ups WHERE customer_id = 901')->fetchColumn(),
+            '关联跟进还在');
+
+        // 新的可选值要能写，旧 CHECK 之外的值仍要被拒——证明换掉的是真的约束
+        $pdo->exec("INSERT INTO customers (name, status) VALUES ('新状态客户1','one_time')");
+        $pdo->exec("INSERT INTO customers (name, status) VALUES ('新状态客户2','dormant')");
+        $pdo->exec("INSERT INTO customers (name, status) VALUES ('新状态客户3','lost')");
+        $rejected = false;
+        try {
+            $pdo->exec("INSERT INTO customers (name, status) VALUES ('非法客户','archived')");
+        } catch (Throwable $e) {
+            $rejected = true;
+        }
+        assertTrue($rejected, '非法状态仍被 CHECK 拒绝');
+
+        // 索引与触发器是表的附属物，会随 DROP TABLE 消失，迁移必须把它们建回来
+        assertEquals(1, (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_customers_status'")->fetchColumn(),
+            'idx_customers_status 已重建');
+        assertEquals(1, (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name='trg_customers_updated'")->fetchColumn(),
+            'trg_customers_updated 已重建');
+
+        // 重建表最容易弄坏的两件事：外键完整性与级联删除
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        assertEquals([], $pdo->query('PRAGMA foreign_key_check')->fetchAll(PDO::FETCH_ASSOC), '没有悬空外键');
+        $pdo->exec('DELETE FROM customers WHERE id = 901');
+        assertEquals(0, (int) $pdo->query('SELECT COUNT(*) FROM deals WHERE customer_id = 901')->fetchColumn(),
+            '删客户仍级联删商机');
+        unset($pdo);
+
+        // “老库/新库结构一致”是 migrate.php 的书面约定：升级后的列清单要与新建库一致
+        $fresh = tempDb('statusfresh');
+        try {
+            [$freshCode, $freshOut] = runMigrate($fresh);
+            assertEquals(0, $freshCode, "新建库也要成功:\n{$freshOut}");
+            assertEquals(dbColumns($fresh, 'customers'), dbColumns($legacy, 'customers'),
+                '升级后的列清单与新建库一致');
+            // 索引/触发器是“重建表”最容易弄丢的东西（uidx_customers_public_code 就真丢过一次）
+            assertEquals(dbAttachedObjects($fresh, 'customers'), dbAttachedObjects($legacy, 'customers'),
+                '升级后 customers 的索引/触发器与新建库一致');
+        } finally {
+            @unlink($fresh);
+        }
+    } finally {
+        @unlink($legacy);
+    }
+}
+
 runCase();

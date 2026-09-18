@@ -64,8 +64,9 @@ $c = $old ?? $customer ?? [];
     <div class="col-md-3">
         <label class="form-label">状态</label>
         <select name="status" class="form-select">
-            <option value="active" <?= ($c['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>活跃</option>
-            <option value="inactive" <?= ($c['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>非活跃</option>
+            <?php foreach (Customer::statusOptions() as $value => $label): ?>
+                <option value="<?= e($value) ?>" <?= ($c['status'] ?? 'active') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+            <?php endforeach; ?>
         </select>
     </div>
     <div class="col-md-3">

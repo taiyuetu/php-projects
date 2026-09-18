@@ -450,3 +450,16 @@ function statusBadge(string $status): string
         $label = $zhMap[$status] ?? ucwords(str_replace('_', ' ', $status));
     return '<span class="badge text-bg-' . $color . '">' . e($label) . '</span>';
 }
+
+/**
+ * 客户状态徽章：5 种状态的取值、中文名与配色都来自 Customer::STATUSES。
+ *
+ * 为什么不并进 statusBadge()：那是一张跨表的全局映射，而 active / lost 这类值在不同表里
+ * 含义不同（线索的 lost 是「已流失」，客户的是「流失客户」；客户的三种非活跃状态更是
+ * 只有客户表才有）。混在一张表里早晚互相污染，所以客户走自己的那一份。
+ */
+function customerStatusBadge(?string $status): string
+{
+    return '<span class="badge text-bg-' . e(Customer::statusBadgeClass($status)) . '">'
+        . e(Customer::statusLabel($status)) . '</span>';
+}

@@ -73,7 +73,7 @@
                                 <a href="<?= url('/customers/' . $c['id']) ?>" class="fw-semibold text-decoration-none"><?= e($c['name']) ?></a>
                                 <div class="small text-muted"><?= e($c['company'] ?: '—') ?></div>
                             </td>
-                            <td class="text-end"><?= statusBadge($c['status']) ?></td>
+                            <td class="text-end"><?= customerStatusBadge($c['status']) ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

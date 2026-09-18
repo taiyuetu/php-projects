@@ -114,7 +114,10 @@ CREATE TABLE IF NOT EXISTS customers (
     first_purchase_from_china INTEGER NOT NULL DEFAULT 0,
     has_import_capability     INTEGER NOT NULL DEFAULT 0,
     conversion_time           TEXT,
-    status                    TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+    -- 客户状态（5 种）：active 活跃客户 / one_time 一次性客户 / inactive 非活跃客户 /
+    -- dormant 沉睡客户 / lost 流失客户；中文名与「取哪些值」在 Customer::STATUSES 里声明，
+    -- 这里改枚举要同步增一个重建表的迁移（见 migrations/021）
+    status                    TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','one_time','inactive','dormant','lost')),
     owner_id                  INTEGER,
     notes                     TEXT,
     created_at                TEXT NOT NULL DEFAULT (datetime('now')),

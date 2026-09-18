@@ -53,7 +53,7 @@ $relatedId = (int) $customer['id'];
                 <p class="mb-1"><i class="bi bi-map me-2"></i><?= e($customer['source_country'] ?: '') ?><?= $customer['source_city'] ? ' · ' . e($customer['source_city']) : '' ?></p>
             <?php endif; ?>
             <?= ownerBlock($customer['owner_id'] ?? null) ?>
-            <p class="mb-1"><?= statusBadge($customer['status']) ?></p>
+            <p class="mb-1"><?= customerStatusBadge($customer['status']) ?></p>
             <p class="mb-1"><i class="bi bi-clock-history me-2"></i>
                 <?php if (!empty($customer['conversion_time'])): ?>
                     转化时间：<?= formatDate($customer['conversion_time'], 'Y-m-d') ?>

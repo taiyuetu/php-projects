@@ -246,8 +246,10 @@ function test_the_prompt_teaches_the_query_then_act_pattern(): void
     assertContains('一个 delete_customer 就够', $prompt, '要教它别把级联重复发一遍');
     assertContains('q 留空', $prompt);
     // 8100→8300：商品库新增库存列；8300→8350：线索新增 wechat 列（字段清单由表结构生成，故自动进提示词）
-    // + 规则 5b 补「商机只认客户」一句，实测 8328。原因见 CHANGELOG [Unreleased]
-    assertTrue(textLength($prompt) < 8350, '提示词长度仍然受控（' . textLength($prompt) . ' 字）');
+    // + 规则 5b 补「商机只认客户」一句，实测 8328。8350→8450：客户状态 2→5 种（同一机制，
+    // one_time / dormant / lost 进 create_customer / update_customer 的枚举），实测 8406。
+    // 原因见 CHANGELOG [Unreleased]
+    assertTrue(textLength($prompt) < 8450, '提示词长度仍然受控（' . textLength($prompt) . ' 字）');
 }
 
 /** 搜索的新参数得出现在文档与服务商表里（同源生成，不手写）。 */

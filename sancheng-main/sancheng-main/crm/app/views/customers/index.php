@@ -46,7 +46,7 @@
                     <td><?= e($c['company'] ?: '—') ?></td>
                     <td><?= e($c['phone'] ?: '—') ?></td>
                     <td title="<?= e($c['notes'] ?? '') ?>" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($c['notes'] ?: '—') ?></td>
-                    <td><?= statusBadge($c['status']) ?></td>
+                    <td><?= customerStatusBadge($c['status']) ?></td>
                     <td class="text-nowrap" title="转化时间"><?= !empty($c['conversion_time']) ? formatDate($c['conversion_time'], 'Y-m-d') : '—' ?></td>
                     <td><?= e($c['owner_name'] ?? '—') ?></td>
                     <td class="text-end">

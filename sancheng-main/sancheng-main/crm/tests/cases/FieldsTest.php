@@ -83,8 +83,8 @@ function test_columns_overlay_merges_declared_and_schema(): void
     assertEquals('备注', $cols['notes']['label'], 'notes 的 label');
     assertEquals('text', $cols['notes']['type'], '长文本类型生效');
 
-    // status 的枚举值自动来自 DB CHECK，不用在注册表重复
-    assertEquals(['active', 'inactive'], $cols['status']['options'], 'CHECK 枚举自动带出');
+    // status 的枚举值自动来自 DB CHECK，不用在注册表重复（5 种客户状态，中文名在 Customer::STATUSES）
+    assertEquals(['active', 'one_time', 'inactive', 'dormant', 'lost'], $cols['status']['options'], 'CHECK 枚举自动带出');
     assertEquals('enum', $cols['status']['type']);
 
     // 未在注册表声明的系统列：也有默认描述（label 回退列名），只是没有多余语义
@@ -165,6 +165,26 @@ function test_auto_form_fields_only_include_flagged_columns(): void
     assertContains('col-12', $html);
 }
 
+/**
+ * 客户状态词表：模型里的 5 种状态必须与 DB CHECK 完全一致。
+ * 改枚举要同时动 schema.sql / 迁移 / Customer::STATUSES，漏掉任何一处都在这里炸。
+ */
+function test_customer_status_vocabulary_matches_the_check_and_has_labels(): void
+{
+    $cols = Fields::columns('customers', (new Customer())->fieldDefs());
+    assertSameSet(array_keys(Customer::STATUSES), $cols['status']['options'], 'Customer::STATUSES 的取值 = DB CHECK');
+
+    assertEquals('活跃客户', Customer::statusLabel('active'), 'active 的中文名');
+    assertEquals('一次性客户', Customer::statusLabel('one_time'));
+    assertEquals('非活跃客户', Customer::statusLabel('inactive'));
+    assertEquals('沉睡客户', Customer::statusLabel('dormant'));
+    assertEquals('流失客户', Customer::statusLabel('lost'));
+    assertEquals('archived', Customer::statusLabel('archived'), '未知取值照实回吐，不假装成已知状态');
+
+    assertContains('沉睡客户', customerStatusBadge('dormant'), '徽章与下拉共用同一份中文名');
+    assertContains('text-bg-warning', customerStatusBadge('dormant'), '沉睡客户有自己的配色');
+}
+
 /** block 渲染：bool→checkbox、enum→select（可选值来自 DB CHECK）、required 星号 */
 function test_auto_form_block_control_mapping(): void
 {
@@ -181,6 +201,7 @@ function test_auto_form_block_control_mapping(): void
     assertContains('<select', $statusHtml);
     assertContains('value="active"', $statusHtml);
     assertContains('value="inactive"', $statusHtml);
+    assertContains('value="dormant"', $statusHtml, '新增的沉睡客户也要在控件里');
     assertContains('selected', $statusHtml);
 
     $name = $cols['name'];

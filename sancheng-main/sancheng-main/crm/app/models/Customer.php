@@ -12,6 +12,43 @@ class Customer extends Model
     protected string $table = 'customers';
 
     /**
+     * 客户状态：取值与 schema.sql 的 CHECK(status IN …) 一致，中文名一处声明。
+     * 改这里的取值就要同步改 CHECK —— SQLite 改不了 CHECK，得新增一个重建表的迁移
+     * （见 migrations/021_customers_status_enum.sql）。
+     */
+    public const STATUSES = [
+        'active'   => '活跃客户',
+        'one_time' => '一次性客户',
+        'inactive' => '非活跃客户',
+        'dormant'  => '沉睡客户',
+        'lost'     => '流失客户',
+    ];
+
+    /** for <select> / 筛选器：value => 中文名（顺序即业务上的活跃度递减） */
+    public static function statusOptions(): array
+    {
+        return self::STATUSES;
+    }
+
+    /** 状态的中文名；库里出现未知取值时如实吐回，不假装是某一个已知状态 */
+    public static function statusLabel(?string $status): string
+    {
+        return self::STATUSES[$status] ?? (string) $status;
+    }
+
+    /** 状态徽章配色（文案与取值仍来自 STATUSES，视图只挑颜色） */
+    public static function statusBadgeClass(?string $status): string
+    {
+        return [
+            'active'   => 'success',
+            'one_time' => 'info',
+            'inactive' => 'secondary',
+            'dormant'  => 'warning',
+            'lost'     => 'danger',
+        ][$status] ?? 'secondary';
+    }
+
+    /**
      * 字段语义注册表（稀疏）：结构看 schema.sql，这里只补语义。
      * searchable 列与改动前 $searchable 的清单一致 → 搜索行为不变。
      */

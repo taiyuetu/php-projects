@@ -4033,6 +4033,10 @@ TXT;
                 $impact['who'][$zh] = textClip((string) $row[$col], 24);
             }
         }
+        if ($type === 'customer' && !empty($row['status'])) {
+            // 客户状态是 5 个内部取值（active/one_time/…），确认闸门上得给人看中文
+            $impact['who']['状态'] = Customer::statusLabel((string) $row['status']);
+        }
         if ($type === 'customer') {
             $impact['cascade'] = [
                 '线索' => $n("SELECT COUNT(*) FROM leads WHERE customer_id = {$id}"),
