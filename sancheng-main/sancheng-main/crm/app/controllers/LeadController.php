@@ -12,18 +12,26 @@ class LeadController extends Controller
 
         $status = trim($_GET['status'] ?? '');
         $search = trim($_GET['q'] ?? '');
+        $grade = trim($_GET['grade'] ?? '');
+        if (!array_key_exists($grade, Lead::gradeOptions())) {
+            $grade = '';
+        }
+        $sourceCategoryId = max(0, (int) ($_GET['cat'] ?? 0));
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $perPage = 15;
 
         $leadModel = $this->model('Lead');
-        $total = $leadModel->countLeads($status, $search);
+        $total = $leadModel->countLeads($status, $search, $grade, $sourceCategoryId);
         $totalPages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $totalPages);
 
         $this->view('leads/index', [
-            'leads'      => $leadModel->allLeads($status, $page, $perPage, $search),
+            'leads'      => $leadModel->allLeads($status, $page, $perPage, $search, $grade, $sourceCategoryId),
             'status'     => $status,
             'search'     => $search,
+            'grade'      => $grade,
+            'sourceCategoryId' => $sourceCategoryId,
+            'sourceCategories' => Category::activeOptions('lead_source'),
             'page'       => $page,
             'totalPages' => $totalPages,
             'total'      => $total,
@@ -47,9 +55,15 @@ class LeadController extends Controller
             ? $this->model('Customer')->find((int) $lead['customer_id'])
             : null;
 
+        // 来源分类名称（单页展示用）
+        $sourceCategory = !empty($lead['source_category_id'])
+            ? $this->model('Category')->find((int) $lead['source_category_id'])
+            : null;
+
         $this->view('leads/show', [
             'lead'     => $lead,
             'customer' => $customer ?: null,
+            'sourceCategoryName' => $sourceCategory['name'] ?? '',
             'csrf'     => $this->csrfToken(),
         ]);
     }

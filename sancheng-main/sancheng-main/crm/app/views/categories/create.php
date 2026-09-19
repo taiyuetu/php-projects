@@ -1,13 +1,14 @@
 <?php
-/** @var string $csrf @var array $old @var array $errors
+/** @var string $csrf @var array $old @var array $errors @var string $type
  *
  * Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
  */
+$typeLabel = Category::typeLabel($type ?? 'product');
 ?>
-<h3 class="mb-4"><i class="bi bi-plus-circle me-2"></i>新增分类</h3>
+<h3 class="mb-4"><i class="bi bi-plus-circle me-2"></i>新增<?= e($typeLabel) ?></h3>
 
 <?php
-$action = url('/categories');
+$action = url('/categories' . (($type ?? 'product') === 'product' ? '' : '?type=' . $type));
 $editing = false;
 $submitText = '保存分类';
 include __DIR__ . '/_form.php';

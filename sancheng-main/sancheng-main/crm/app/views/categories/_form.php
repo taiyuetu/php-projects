@@ -1,9 +1,12 @@
 <?php
-/** @var array $old @var array $errors @var string $action @var string $submitText
+/** @var array $old @var array $errors @var string $action @var string $submitText @var string $type
  *
  * Copyright (c) 2026 wayne · 叁程 CRM (Triphase CRM) — 保留所有权利 / All rights reserved.
  */
+$type = $type ?? 'product';
+$typeLabel = Category::typeLabel($type);
 $val = static fn(string $k, $d = '') => e((string) (($old[$k] ?? $d)));
+$listUrl = url('/categories' . ($type === 'product' ? '' : '?type=' . $type));
 ?>
 <?php if (!empty($errors)): ?>
     <div class="alert alert-warning">
@@ -16,11 +19,12 @@ $val = static fn(string $k, $d = '') => e((string) (($old[$k] ?? $d)));
         <input type="hidden" name="_method" value="PUT">
     <?php endif; ?>
     <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+    <input type="hidden" name="type" value="<?= e($type) ?>">
     <div class="row g-3">
         <div class="col-md-6">
             <label class="form-label">分类名称 <span class="text-danger">*</span></label>
             <input type="text" name="name" class="form-control" required maxlength="60"
-                   value="<?= $val('name') ?>" placeholder="如：轴承 / 软件授权 / 服务">
+                   value="<?= $val('name') ?>" placeholder="<?= $type === 'lead_source' ? '如：展会 / 官网询盘 / 老客户推荐' : '如：轴承 / 软件授权 / 服务' ?>">
             <div class="form-text">分类名称不能重复。</div>
         </div>
         <div class="col-md-3">
@@ -38,12 +42,12 @@ $val = static fn(string $k, $d = '') => e((string) (($old[$k] ?? $d)));
                     </option>
                 <?php endforeach; ?>
             </select>
-            <div class="form-text">停用后不会出现在商品的分类下拉里。</div>
+            <div class="form-text">停用后不会出现在<?= $type === 'lead_source' ? '线索' : '商品' ?>的分类下拉里。</div>
         </div>
     </div>
 
     <div class="d-flex gap-2 mt-4">
         <button type="submit" class="btn btn-primary"><?= e($submitText ?? '保存分类') ?></button>
-        <a href="<?= url('/categories') ?>" class="btn btn-outline-secondary">取消</a>
+        <a href="<?= $listUrl ?>" class="btn btn-outline-secondary">取消</a>
     </div>
 </form>

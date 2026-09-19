@@ -82,6 +82,8 @@ CREATE INDEX IF NOT EXISTS idx_remember_tokens_expires ON remember_tokens(expire
 CREATE TABLE IF NOT EXISTS categories (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL UNIQUE,
+    -- 分类类型：product=商品分类，lead_source=线索来源分类
+    type        TEXT NOT NULL DEFAULT 'product' CHECK (type IN ('product','lead_source')),
     sort_order  INTEGER NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE INDEX IF NOT EXISTS idx_categories_status ON categories(status);
 CREATE INDEX IF NOT EXISTS idx_categories_sort   ON categories(sort_order);
+-- type 列索引见增量 023（老库基线重放时还没有这一列，与 public_code 的处理一致）。
 
 -- ---------------------------------------------------------------
 -- 2. Customers (companies / people the org does business with)
@@ -189,6 +192,10 @@ CREATE TABLE IF NOT EXISTS leads (
     tiktok                    TEXT,
     website                   TEXT,
     source                    TEXT,
+    -- 线索来源分类（主数据 categories.type='lead_source'）
+    source_category_id        INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    -- 线索星级：A 热线索 / B 温线索 / C 冷线索 / D 无效线索
+    grade                     TEXT CHECK (grade IS NULL OR grade IN ('A','B','C','D')),
     source_country            TEXT,
     source_city               TEXT,
     address                   TEXT,
@@ -209,6 +216,7 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_customer ON leads(customer_id);
 CREATE INDEX IF NOT EXISTS idx_leads_lost ON leads(lost_reason);
+-- grade / source_category_id 索引见增量 023（老库基线重放时还没有这两列）。
 
 -- ---------------------------------------------------------------
 -- 4. Deals (opportunities being worked toward a close)

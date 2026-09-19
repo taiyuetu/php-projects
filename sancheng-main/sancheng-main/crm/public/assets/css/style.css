@@ -60,6 +60,122 @@ body {
     font-weight: 600;
 }
 
+/* 可展开的分组菜单（含子菜单的父项）：整行是一个 pill，
+   文字部分负责跳转到列表页，右侧箭头按钮单独负责折叠/展开 */
+.sidebar-nav .nav-group {
+    display: flex;
+    align-items: center;
+    border-radius: .5rem;
+}
+
+.sidebar-nav .nav-group:hover {
+    background: rgba(255,255,255,.12);
+}
+
+.sidebar-nav .nav-group.active {
+    background: rgba(255,255,255,.2);
+}
+
+.sidebar-nav .nav-group > .nav-group-link {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: .6rem 0 .6rem .9rem;
+    font-size: .95rem;
+    color: rgba(255,255,255,.85);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-nav .nav-group:hover > .nav-group-link,
+.sidebar-nav .nav-group.active > .nav-group-link {
+    color: #fff;
+    font-weight: 600;
+}
+
+.sidebar-nav .nav-group > .nav-group-link:hover {
+    background: transparent;   /* 高亮由 .nav-group 整行负责，避免只有半边变色 */
+}
+
+.sidebar-nav .nav-group > .nav-group-toggle {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 0;
+    padding: .6rem .7rem;
+    line-height: 1;
+    border-radius: .5rem;
+    color: rgba(255,255,255,.7);
+    cursor: pointer;
+}
+
+.sidebar-nav .nav-group > .nav-group-toggle:hover,
+.sidebar-nav .nav-group > .nav-group-toggle:focus-visible {
+    color: #fff;
+    background: rgba(255,255,255,.12);
+}
+
+.sidebar-nav .nav-group .nav-caret {
+    display: block;
+    font-size: .75rem;
+    transition: transform .2s ease;
+}
+
+.sidebar-nav .nav-group-toggle[aria-expanded="true"] .nav-caret {
+    transform: rotate(180deg);
+}
+
+/* 子菜单容器（配合 Bootstrap Collapse 折叠） */
+.sidebar-nav .nav-submenu {
+    flex-direction: column;
+    gap: .2rem;
+    margin: .15rem 0 .25rem;
+    padding-left: .9rem;
+    position: relative;
+}
+
+/* 折叠组件展开完成/动画进行中时才以 flex 布局显示，
+   避免覆盖 .collapse:not(.show) { display: none } 导致无法折叠 */
+.sidebar-nav .nav-submenu.show,
+.sidebar-nav .nav-submenu.collapsing {
+    display: flex;
+}
+
+/* 子菜单左侧缩进参考线 */
+.sidebar-nav .nav-submenu::before {
+    content: '';
+    position: absolute;
+    left: 1.35rem;
+    top: .25rem;
+    bottom: .25rem;
+    width: 1px;
+    background: rgba(255,255,255,.2);
+}
+
+.sidebar-nav .nav-submenu a {
+    font-size: .85rem;
+    padding: .45rem .75rem .45rem .6rem;
+    color: rgba(255,255,255,.7);
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.sidebar-nav .nav-submenu a i {
+    font-size: .8rem;
+}
+
+.sidebar-nav .nav-submenu a:hover {
+    background: rgba(255,255,255,.12);
+    color: #fff;
+}
+
+.sidebar-nav .nav-submenu a.active {
+    background: rgba(255,255,255,.2);
+    color: #fff;
+    font-weight: 600;
+}
+
 .main-area {
     margin-left: var(--sidebar-w);
     flex: 1;

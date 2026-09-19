@@ -31,21 +31,51 @@
             <a href="<?= url('/customers') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/customers') ? 'active' : '' ?>">
                 <i class="bi bi-people-fill"></i> 客户
             </a>
-            <a href="<?= url('/leads') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/leads') ? 'active' : '' ?>">
-                <i class="bi bi-magnet-fill"></i> 线索
-            </a>
+            <?php $isLeadSourceType = str_contains($_SERVER['REQUEST_URI'], '/categories') && ($_GET['type'] ?? '') === 'lead_source'; ?>
+            <?php $leadMenuActive = str_contains($_SERVER['REQUEST_URI'], '/leads') || $isLeadSourceType; ?>
+            <div class="nav-group <?= $leadMenuActive ? 'active' : '' ?>">
+                <a href="<?= url('/leads') ?>" class="nav-group-link">
+                    <i class="bi bi-magnet-fill"></i> 线索
+                </a>
+                <button type="button" class="nav-group-toggle" data-bs-toggle="collapse" data-bs-target="#nav-lead-submenu"
+                        aria-expanded="<?= $leadMenuActive ? 'true' : 'false' ?>" aria-controls="nav-lead-submenu"
+                        title="展开 / 收起子菜单">
+                    <i class="bi bi-chevron-down nav-caret"></i>
+                </button>
+            </div>
+            <div class="nav-submenu collapse <?= $leadMenuActive ? 'show' : '' ?>" id="nav-lead-submenu">
+                <a href="<?= url('/leads') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/leads') ? 'active' : '' ?>">
+                    <i class="bi bi-list-ul"></i> <span>线索列表</span>
+                </a>
+                <a href="<?= url('/categories?type=lead_source') ?>" class="<?= $isLeadSourceType ? 'active' : '' ?>">
+                    <i class="bi bi-funnel"></i> <span>线索来源分类</span>
+                </a>
+            </div>
             <a href="<?= url('/deals') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/deals') ? 'active' : '' ?>">
                 <i class="bi bi-currency-dollar"></i> 商机
             </a>
             <a href="<?= url('/orders') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/orders') ? 'active' : '' ?>">
                 <i class="bi bi-receipt"></i> 订单
             </a>
-            <a href="<?= url('/products') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/products') ? 'active' : '' ?>">
-                <i class="bi bi-box-seam"></i> 商品
-            </a>
-            <a href="<?= url('/categories') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/categories') ? 'active' : '' ?>">
-                <i class="bi bi-tags"></i> 分类
-            </a>
+            <?php $productMenuActive = str_contains($_SERVER['REQUEST_URI'], '/products') || (str_contains($_SERVER['REQUEST_URI'], '/categories') && !$isLeadSourceType); ?>
+            <div class="nav-group <?= $productMenuActive ? 'active' : '' ?>">
+                <a href="<?= url('/products') ?>" class="nav-group-link">
+                    <i class="bi bi-box-seam"></i> 商品
+                </a>
+                <button type="button" class="nav-group-toggle" data-bs-toggle="collapse" data-bs-target="#nav-product-submenu"
+                        aria-expanded="<?= $productMenuActive ? 'true' : 'false' ?>" aria-controls="nav-product-submenu"
+                        title="展开 / 收起子菜单">
+                    <i class="bi bi-chevron-down nav-caret"></i>
+                </button>
+            </div>
+            <div class="nav-submenu collapse <?= $productMenuActive ? 'show' : '' ?>" id="nav-product-submenu">
+                <a href="<?= url('/products') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/products') ? 'active' : '' ?>">
+                    <i class="bi bi-list-ul"></i> <span>商品列表</span>
+                </a>
+                <a href="<?= url('/categories') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/categories') && !$isLeadSourceType ? 'active' : '' ?>">
+                    <i class="bi bi-tags"></i> <span>商品分类</span>
+                </a>
+            </div>
             <a href="<?= url('/help') ?>" class="<?= str_contains($_SERVER['REQUEST_URI'], '/help') ? 'active' : '' ?>">
                 <i class="bi bi-question-circle"></i> 使用说明
             </a>

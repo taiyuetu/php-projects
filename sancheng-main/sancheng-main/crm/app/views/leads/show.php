@@ -90,7 +90,21 @@ $isLost = ($lead['status'] ?? '') === 'lost';
         <!-- 跟进信息 -->
         <div class="card card-table p-3 mb-3">
             <h6 class="text-muted small text-uppercase">跟进信息</h6>
-            <p class="mb-1"><i class="bi bi-tag me-2"></i>来源：<?= e($lead['source'] ?: '—') ?></p>
+            <?php if (!empty($lead['grade'])): ?>
+                <?php $showGrade = (string) $lead['grade']; ?>
+                <p class="mb-1"><i class="bi bi-star me-2"></i>线索星级：
+                    <span class="badge <?= Lead::gradeBadgeClass($showGrade) ?>"
+                          title="<?= e(Lead::gradeDescriptions()[$showGrade] ?? '') ?>">
+                        <?= e(Lead::gradeLabel($showGrade)) ?>
+                    </span>
+                    <span class="text-muted small ms-1"><?= e(Lead::gradeDescriptions()[$showGrade] ?? '') ?></span>
+                </p>
+            <?php endif; ?>
+            <p class="mb-1"><i class="bi bi-tag me-2"></i>来源：<?= e($lead['source'] ?: '—') ?>
+                <?php if (!empty($sourceCategoryName)): ?>
+                    <span class="badge bg-light text-muted border ms-1"><?= e($sourceCategoryName) ?></span>
+                <?php endif; ?>
+            </p>
             <p class="mb-1"><i class="bi bi-cash-coin me-2"></i>预估金额：<?= money((float) $lead['value']) ?></p>
             <p class="mb-1"><i class="bi bi-hourglass-split me-2"></i>线索时间：<?= formatDate($lead['lead_time'] ?? '', 'Y-m-d H:i') ?></p>
             <?= ownerBlock($lead['owner_id'] ?? null) ?>

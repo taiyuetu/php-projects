@@ -53,15 +53,25 @@ $l = $old ?? $lead ?? [];
     </div>
 
     <!-- 来源 & 地址 -->
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <label class="form-label">线索来源分类</label>
+        <?php $curSourceCat = (int) ($l['source_category_id'] ?? 0); ?>
+        <select name="source_category_id" class="form-select">
+            <option value="">未分类</option>
+            <?php foreach (Category::optionsFor($curSourceCat ?: null, '', 'lead_source') as $cid => $cname): ?>
+                <option value="<?= $cid ?>" <?= $curSourceCat === $cid ? 'selected' : '' ?>><?= e($cname) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="col-md-3">
         <label class="form-label">来源</label>
         <input type="text" name="source" class="form-control" value="<?= e($l['source'] ?? '') ?>" placeholder="网站、推荐…">
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <label class="form-label">来源国家</label>
         <input type="text" name="source_country" class="form-control" value="<?= e($l['source_country'] ?? '') ?>">
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <label class="form-label">来源城市</label>
         <input type="text" name="source_city" class="form-control" value="<?= e($l['source_city'] ?? '') ?>">
     </div>
@@ -83,6 +93,18 @@ $l = $old ?? $lead ?? [];
                 <option value="<?= $s ?>" <?= ($l['status'] ?? 'new') === $s ? 'selected' : '' ?>><?= e($zhStatus[$s] ?? $s) ?></option>
             <?php endforeach; ?>
         </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">线索星级</label>
+        <?php $curGrade = (string) ($l['grade'] ?? ''); ?>
+        <select name="grade" class="form-select">
+            <option value="">未评级</option>
+            <?php foreach (Lead::gradeOptions() as $gv => $glabel): ?>
+                <option value="<?= e($gv) ?>" title="<?= e(Lead::gradeDescriptions()[$gv] ?? '') ?>"
+                    <?= $curGrade === $gv ? 'selected' : '' ?>><?= e($glabel) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <div class="form-text">A 热：需求+预算+近期采购；B 温：1–3 个月培育；C 冷：长期培育；D 无效：归档/放弃。</div>
     </div>
     <div class="col-md-3">
         <label class="form-label d-block">&nbsp;</label>
