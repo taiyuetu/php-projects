@@ -333,6 +333,11 @@ class Ai extends Model
             } elseif (!$forCreate && $spec['nullable']) {
                 $spec['hint'] = '传空字符串表示清空该字段';
             }
+            // 记下本参数出自哪张表：toolsForPrompt() 靠它判断“这个枚举的取值是不是已经
+            // 在“结构与规则速览”里列过了”，从而决定是否还要在工具行里重复展开。
+            // 不传表名就只能按列名猜——新增一个也叫 type 的列后，保守规则会直接放弃去重，
+            // 提示词白白变长（categories.type 一加，follow_ups.type 的取值就被展开了）。
+            $spec['table'] = $table;
             $out[$name] = $spec;
         }
         if (!$forCreate) {
@@ -609,6 +614,8 @@ class Ai extends Model
                                   'options' => ['lead', 'customer', 'deal', 'order', 'product', 'category', 'order_item', 'follow_up', 'activity', 'ai_request']],
                     'country' => ['label' => '国家', 'type' => 'string', 'max' => 80,
                                   'hint'  => '按 source_country 精确匹配，如 India / United States'],
+                    'category' => ['label' => '线索来源分类', 'type' => 'string', 'max' => 40,
+                                   'hint'  => '仅线索：按来源分类名匹配，如 B2B 平台、展会'],
                     'status'  => ['label' => '状态', 'type' => 'string', 'max' => 30,
                                   'hint'  => '客户 active|inactive、线索 new|contacted|qualified|lost、订单 pending…cancelled'],
                     'stage'   => ['label' => '阶段', 'type' => 'string', 'max' => 30,
@@ -951,7 +958,7 @@ class Ai extends Model
                     // 参数名与列名同名，所以这里不重复展开：一个 lost_reason 就 10 个值，
                     // 二十几个工具叠起来就是用户多等的那几秒。
                     // 取值不在数据库 CHECK 里的列（PHP 枚举，如 order_items.unit）地图里没有，必须展开。
-                    if (self::enumIsInMap('', (string) $key, (array) $spec['options'])) {
+                    if (self::enumIsInMap((string) ($spec['table'] ?? ''), (string) $key, (array) $spec['options'])) {
                         $line .= ':enum';
                     } else {
                         $line .= '[' . implode('|', array_map('strval', $spec['options'])) . ']';
@@ -1013,8 +1020,8 @@ class Ai extends Model
 5. 需要 ID 时，只能用 <found> 或数据快照里出现过的真实 ID。找不到就说找不到（在 reply 里写清楚），不要猜一个 ID。
 5b. 要挂的记录不存在就两步一起交：先 create_customer，随后 create_deal 写 customer_id:"@1"（@N＝第N步新建的那条，id 由服务器填）。**商机只认客户，不能挂在线索上。**
 6. 删除（delete_*）：当前开关={$deleteOn}。只有用户明确点名要删的那条才能删；必须带 confirm:true 和一句话 reason（会显示给审批人）；一次最多 5 个删除动作；不确定就先 get_record 或用 update_* 代替。删除会先弹人工确认，不会自动执行。
-7. 缺真实编号时先只发查询：search_records 支持关键词 q，也支持条件 country / status / stage / owner / days / from / to（「印度的所有客户」＝tables:customer + country:India，q 留空）；确实没有可过滤条件时写 all:true 取整表。系统当场执行查询，结果在下一轮 <tool_results> 里，你再出真正的写/删计划。最多 {$rounds} 轮，别反复查。
-7b. 说「删除/列出/新建 分类、品类」一律先 search_records(tables:category)：分类是独立主数据，不是商品表的 category 过滤列。
+7. 缺真实编号时先只发查询：search_records 支持条件 country / status / stage / owner / days / from / to；线索另支持 category＝来源分类名（「B2B 平台的线索」＝tables:lead + category:B2B 平台，q 留空），查分类直接用它，别先查 categories 再拼关键词。没有可过滤条件时写 all:true 取整表。结果在下一轮 <tool_results>，最多 {$rounds} 轮。
+7b. 「分类/品类」是独立主数据，不是商品表的 category 过滤列：删除/列出/新建分类先 search_records(tables:category)。其中线索来源分类（B2B 平台/展会…）挂在 leads.source_category_id 上：查某分类的线索用 tables:lead + category:分类名，别拿分类名当关键词猜线索字段。
 8. 按条件批量删除：先查全（必要时写 all:true 取整表），再对每一条发一个删除动作；一次最多删除 {$maxdeletes} 条，超出会被服务端拒绝——那时在 reply 里说明还剩多少没处理，让人再来一轮。
 9. 用户说「删掉某客户和他的线索/商机/订单」时，一个 delete_customer 就够：它本身会连带删除该客户名下的线索、商机、订单，不要重复发 delete_lead/delete_deal/delete_order。
 10. **绝不靠名字猜属性**：“印度的客户”只能来自 search_records(country:India) 的真实结果，不能自己判断谁“看起来像印度人”。用户点名编号时除外；≥2 个删除动作系统会强制你先查一轮。
@@ -3498,10 +3505,13 @@ TXT;
     public static function searchSurfaces(): array
     {
         return [
+            // joins：把来源分类名 JOIN 进来，模型才能“看到”每条线索的分类（此前它说“没有分类字段”）
             'lead'       => ['table' => 'leads',       'label' => '线索', 'owner' => 'owner_id', 'prefix' => 'LEAD',
+                             'joins' => 'LEFT JOIN categories src_cat ON src_cat.id = leads.source_category_id',
                              'match' => ['public_code', 'title', 'company', 'contact_name', 'contact_email', 'phone', 'whatsapp', 'notes', 'status'],
-                             'show'  => ['public_code', 'title', 'company', 'contact_name', 'contact_email', 'status', 'value'],
-                             'filters' => ['country' => 'source_country', 'status' => 'status']],
+                             'show'  => ['public_code', 'title', 'company', 'contact_name', 'contact_email', 'status', 'value',
+                                         'src_cat.name AS source_category_name'],
+                             'filters' => ['country' => 'source_country', 'status' => 'status', 'category' => 'source_category']],
             'customer'   => ['table' => 'customers',   'label' => '客户', 'owner' => 'owner_id', 'prefix' => 'CUS',
                              'match' => ['public_code', 'name', 'company', 'email', 'phone', 'whatsapp', 'notes', 'status', 'source_country'],
                              'show'  => ['public_code', 'name', 'company', 'email', 'phone', 'status', 'source_country'],
@@ -3582,7 +3592,7 @@ TXT;
     public static function searchFilters(array $args): array
     {
         $filters = [];
-        foreach (['country', 'status', 'stage', 'owner', 'days', 'from', 'to'] as $key) {
+        foreach (['country', 'status', 'stage', 'owner', 'category', 'days', 'from', 'to'] as $key) {
             $value = trim((string) ($args[$key] ?? ''));
             if ($value !== '') {
                 $filters[$key] = $value;
@@ -3676,8 +3686,17 @@ TXT;
             // 与列表页关键词搜索同一套派生逻辑，不会再出现“页面搜得到、AI 搜不到”）。
             $match = self::surfaceMatchCols($surface);
             foreach ($match as $col) {
-                $ors .= ($ors ? ' OR ' : '') . "CAST({$col} AS TEXT) LIKE :p{$col} ESCAPE '\\'";
+                // 列名一律限定表名：带 joins 时（如 leads JOIN categories，两边都有 status/id）
+                // 裸列名会撞 ambiguous column name，而异常被上层 catch 吞成空结果
+                $ors .= ($ors ? ' OR ' : '') . "CAST({$surface['table']}.{$col} AS TEXT) LIKE :p{$col} ESCAPE '\\'";
                 $binds[':p' . $col] = self::likeValue($term);
+            }
+            // 线索：来源分类名（如「B2B 平台」）也算关键词命中，否则“B2B 的线索”搜不到。
+            // 分类名存主数据表里，必须 EXISTS 子查询；去空格比相等宽，免得“B2B平台”对不上“B2B 平台”。
+            if ($surface['table'] === 'leads') {
+                $ors .= " OR EXISTS (SELECT 1 FROM categories sc_k WHERE sc_k.id = leads.source_category_id"
+                    . " AND REPLACE(UPPER(CAST(sc_k.name AS TEXT)), ' ', '') LIKE :p_source_category ESCAPE '\\')";
+                $binds[':p_source_category'] = self::likeValue(str_replace(' ', '', strtoupper($term)));
             }
             $where[] = '(' . $ors . ')';
         }
@@ -3699,7 +3718,15 @@ TXT;
                 $where[] = '(' . implode(' OR ', $ors) . ')';
                 continue;
             }
-            $where[] = "CAST({$col} AS TEXT) LIKE :f_{$name} ESCAPE '\\'";
+            if ($name === 'category') {
+                // 线索来源分类：分类名在 categories 主数据里，按名过滤要 EXISTS 子查询。
+                // 与关键词命中同一套去空格口径，写 “B2B平台” / “B2B 平台” 都能对上。
+                $where[] = 'EXISTS (SELECT 1 FROM categories sc_f WHERE sc_f.id = ' . $surface['table'] . '.source_category_id'
+                    . " AND REPLACE(UPPER(CAST(sc_f.name AS TEXT)), ' ', '') LIKE :f_{$name} ESCAPE '\\')";
+                $binds[':f_' . $name] = self::likeValue(str_replace(' ', '', strtoupper($value)));
+                continue;
+            }
+            $where[] = "CAST({$surface['table']}.{$col} AS TEXT) LIKE :f_{$name} ESCAPE '\\'";
             $binds[':f_' . $name] = self::likeValue($value);
         }
         if (!empty($filters['owner'])) {
@@ -3726,7 +3753,7 @@ TXT;
                 continue;
             }
             $binds[':bound_' . $key] = date('Y-m-d', $ts) . ' ' . $clock;
-            $where[] = "CAST(created_at AS TEXT) {$op} :bound_{$key}";
+            $where[] = "CAST({$surface['table']}.created_at AS TEXT) {$op} :bound_{$key}";
         }
         if ($surface['table'] === 'ai_actions') {
             // 业务记录允许看同事的（与页面一致），但审计行里是「谁说了什么、AI 答了什么」，
@@ -3778,9 +3805,18 @@ TXT;
         }
         // 有的表（如 order_items）自己没有归属人，归属在父记录上：这时不拼空列名
         $ownerCol = (string) ($surface['owner'] ?? '');
-        $select = implode(', ', array_unique(array_merge(['id'], $surface['show'], $ownerCol !== '' ? [$ownerCol] : [])));
-        $query = 'SELECT ' . $select . ' FROM ' . $surface['table'] . ' WHERE ' . $sql
-            . ' ORDER BY id DESC LIMIT ' . (int) $limit;
+        $select = implode(', ', array_unique(array_merge(
+            // id 限定表名：带 joins（如线索 JOIN 分类名）时 SQLite 会报 ambiguous column name，
+            // 而查询里的 catch 会把异常吞成“查不到”，不限定表名就是一个静默的空结果
+            [$surface['table'] . '.id AS id'],
+            // show 列也限定表名；含 AS（跨表 JOIN 列）的原样保留
+            array_map(static function ($col) use ($surface) {
+                return str_contains($col, ' ') ? $col : $surface['table'] . '.' . $col;
+            }, $surface['show']),
+            $ownerCol !== '' ? [$surface['table'] . '.' . $ownerCol] : [])));
+        $query = 'SELECT ' . $select . ' FROM ' . $surface['table'] . ' ' . ($surface['joins'] ?? '')
+            . ' WHERE ' . $sql
+            . ' ORDER BY ' . $surface['table'] . '.id DESC LIMIT ' . (int) $limit;
         try {
             $stmt = (new Database())->query($query);
             foreach ($binds as $key => $value) {
@@ -3805,11 +3841,13 @@ TXT;
                 if (in_array($col, ['public_code'], true)) {
                     continue;
                 }
-                $value = $row[$col] ?? null;
+                // 带 AS 的跨表 JOIN 列（如 src_cat.name AS source_category_name）：结果集里的键是别名
+                $key = ($p = strripos($col, ' AS ')) !== false ? trim(substr($col, $p + 4)) : $col;
+                $value = $row[$key] ?? null;
                 if ($value === null || $value === '') {
                     continue;
                 }
-                $bits[] = $col . '=' . textClip((string) $value, 60);
+                $bits[] = $key . '=' . textClip((string) $value, 60);
             }
             $out[] = [
                 'type'   => $surface['label'],
@@ -3882,6 +3920,13 @@ TXT;
         }
         $lines = [$label . ' ' . ($code !== '' ? $code : '#' . $id) . '（负责人：' . ($owner ? ownerLabel($owner) : '未分配/公海')
             . '，你可操作：' . (canManageResource($owner ?: null) ? '是' : '否') . '）', implode('；', $fields)];
+        if ($type === 'lead' && !empty($row['source_category_id'])) {
+            // source_category_id 是裸 ID，模型无法自己翻譯成分类名；不补这一行，“这个线索是什么分类”就答不上
+            $cat = (new Category())->find((int) $row['source_category_id']);
+            if ($cat) {
+                $lines[] = '线索来源分类：' . (string) $cat['name'];
+            }
+        }
         if ($type === 'ai_request') {
             // 审计行里的 plan_json/result_json 太大也不给人看，但“当时到底动了哪几条”必须能回答，
             // 否则用户问“上次那个删除到底删了什么”时，历史就只有一句口令。

@@ -248,6 +248,8 @@ function test_the_prompt_teaches_the_query_then_act_pattern(): void
     // 8100→8300：商品库新增库存列；8300→8350：线索新增 wechat 列（字段清单由表结构生成，故自动进提示词）
     // + 规则 5b 补「商机只认客户」一句，实测 8328。8350→8450：客户状态 2→5 种（同一机制，
     // one_time / dormant / lost 进 create_customer / update_customer 的枚举），实测 8406。
+    // 上限未动：线索新增来源分类/星级时因为 categories.type 与 follow_ups.type 重名，
+    // 去重一度失效（8674 字）；改按来源表去重后为 8331 字，反而比上一版短。
     // 原因见 CHANGELOG [Unreleased]
     assertTrue(textLength($prompt) < 8450, '提示词长度仍然受控（' . textLength($prompt) . ' 字）');
 }

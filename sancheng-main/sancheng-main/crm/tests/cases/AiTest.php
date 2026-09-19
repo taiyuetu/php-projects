@@ -459,6 +459,9 @@ function test_requests_are_bounded_so_answers_come_back_fast(): void
     // 实测 8084 → 8104。8300 → 8350：线索新增 wechat 列（同一机制）+ 规则 5b 补一句
     // 「商机只认客户」，实测 8328。8350 → 8450：客户状态 2 → 5 种（one_time / dormant / lost
     // 随字段清单进 create_customer / update_customer 的枚举），实测 8406。
+    // 上限没再抬高：线索新增来源分类/星级后一度涨到 8674（follow_ups.type 与新的
+    // categories.type 重名，去重只能按列名比 → 保守放弃去重，取值白白展开两遍）。
+    // 改成按“来源表”去重后降到 8331 —— 能力变多反而比上一版还短，闸门回到 8450 不动。
     // 原因都记在 CHANGELOG [Unreleased]。
     assertTrue(textLength($seen['messages'][0]['content']) < 8450,
         'the system prompt stays bounded (got ' . textLength($seen['messages'][0]['content']) . ')');

@@ -364,4 +364,49 @@ function test_prompt_validation_and_write_share_one_field_list(): void
     assertContains('可写字段', AppMap::toText());
 }
 
+/**
+ * 提示词里省略枚举取值（去重）时，那个取值必须真的能在“速览表”里查到。
+ *
+ * 真实发生的退化：toolsForPrompt() 判断“这个枚举的取值是否已在速览表里列过”时
+ * 把表名传成了空串，只能按列名比 —— 一旦新增一个重名列（categories.type 与
+ * follow_ups.type），保守规则就放弃去重、把取值重复展开，提示词白白变长
+ * （AiTest / AiBulkTest / AiPermissionsTest 的长度闸门当场报 8674 字）。
+ * 现在参数带着来源表，去重是精确的：省略取值 = 速览表里必有同表同列同取值的一条。
+ */
+function test_deduped_enum_values_are_always_findable_in_the_map(): void
+{
+    fieldsAdmin();
+    $prompt = Ai::systemPrompt();
+
+    // 速览表：提示词里 “表.列 = a|b|c” 那些行
+    $map = [];
+    foreach (explode("\n", $prompt) as $line) {
+        if (preg_match('/^([a-z_]+\.[a-z_]+)\s*=\s*(\S+)$/', trim($line), $m)) {
+            $map[$m[1]] = $m[2];
+        }
+    }
+    assertTrue($map !== [], '提示词里应有一段结构与规则速览（枚举取值表）');
+
+    $checked = 0;
+    foreach (Ai::toolsForPrompt() as $tool => $line) {
+        foreach (Ai::tools()[$tool]['params'] as $name => $spec) {
+            if (($spec['type'] ?? '') !== 'enum' || empty($spec['options'])) {
+                continue;
+            }
+            // 去重后的写法是 name:enum:enum（类型名一次、去重标记一次）；展开了则带 [a|b|c]
+            if (!preg_match('/(?:^|\s)' . preg_quote($name, '/') . ':enum:enum!?(?=\s|$)/', $line)) {
+                continue;
+            }
+            $checked++;
+            $values = implode('|', array_map('strval', $spec['options']));
+            $table = (string) ($spec['table'] ?? '');
+            assertTrue($table !== '', "{$tool}.{$name} 省略了取值，但它没有来源表，无法确认速览表覆盖了它");
+            $key = $table . '.' . $name;
+            assertTrue(isset($map[$key]), "{$tool}.{$name} 省略了取值，速览表里却没有 {$key}");
+            assertEquals($values, $map[$key], "{$tool}.{$name} 省略的取值与速览表 {$key} 不一致");
+        }
+    }
+    assertTrue($checked >= 10, "至少应有一批枚举被去重（实测 {$checked} 个）——少于这个数说明去重又整片失效了");
+}
+
 runCase();

@@ -9,6 +9,23 @@
 
 ## [Unreleased]
 
+### Fixed
+- **AI 助手查不到「线索来源分类」的线索（搜 B2B 返回空/答“没有分类字段”）**：
+  `search_records` 的线索面此前只匹配线索自身文本列、只支持 country/status 过滤，
+  而来源分类名存在 `categories` 主数据里，关键词与返回字段都碰不到它 ——
+  库里明明有 LEAD-000005（B2B 平台），AI 却说“没有分类字段”。现在：
+  - `search_records` 新增 `category` 参数（仅线索）：按来源分类名过滤，
+    「来源分类为 B2B 平台的线索」＝ `tables:lead + category:B2B 平台`，
+    去空格比对（“B2B平台”/“B2B 平台”都能对上）；
+  - 线索关键词搜索同步命中分类名（搜“B2B”也能找到挂在该分类下的线索）；
+  - 线索搜索结果与 `get_record` 详情都会带出分类名（`source_category_name` /
+    “线索来源分类：B2B 平台”），模型不再面对裸 `source_category_id=4` 猜不出含义；
+  - 顺带修复两处静默坑：线索面带 JOIN 后裸 `id`/`status` 撞 SQLite
+    "ambiguous column name" 被上层 catch 吞成空结果 —— 查询列一律限定表名；
+  - 系统提示词规则 7/7b 同步更新，引导模型一次查中，减少多轮往返
+    （此前这类查不到的请求会反复搜索，glm-4.5-air 下一轮就是一次完整调用，
+    单次指令耗时被拉到 95s+；一次命中后往返次数直接降下来）。
+
 ### Added
 - **客户状态从 2 种扩到 5 种**：活跃客户（`active`）/ 一次性客户（`one_time`）/ 非活跃客户（`inactive`）/
   沉睡客户（`dormant`）/ 流失客户（`lost`）。
@@ -70,6 +87,19 @@
     （幂等，两类库都跑）。
 
 ### Changed
+- **提示词去重改为按“来源表”判断，提示词反而变短了（8674 → 8331 字）。**
+  `Ai::toolsForPrompt()` 为了不把同一个枚举的取值重复写两遍（速览表里已按
+  `table.column = a|b|c` 给过一份），会先问 `enumIsInMap()`；而这个判断一直
+  把表名传成空串，只能按列名比 —— 保守规则是“同名列只要有一处取值不同就不省略”。
+  线索新增来源分类后，`categories.type` 与 `follow_ups.type` 重名，规则当场生效：
+  `follow_ups.type` 的取值被白白展开两遍，提示词从 8406 涨到 8674，
+  `AiTest` / `AiBulkTest` / `AiPermissionsTest` 三个长度闸门同时报红。
+  - `Ai::fieldsFor()` 现在给每个字段参数记下 `table`（来源表），调用处传真实表名，
+    去重变成精确匹配（`leads.status` 不再被 `customers.status` 连累），
+    16 个枚举恢复去重、14 个按需展开，且**上限一个字没改**。
+  - `AiFieldsTest` 新增 `test_deduped_enum_values_are_always_findable_in_the_map`：
+    逐个校验“被省略的取值一定能在速览表里按同表同列查到”，并卡住去重数量下限
+    （否则它只会以“提示词变长”这种间接形式报错，而闸门有 100+ 字余量时会静默溜过去）。
 - **侧边栏二级菜单：一级菜单点一下 = 跳转列表页 + 展开子菜单。** 原来
   `data-bs-toggle="collapse"` 挂在 `<a>` 上，Bootstrap 对锚点会 `preventDefault()`，
   所以点「商品/线索」只展开、不跳转，还得再点一次子项。现在父项拆成两个点击区：
